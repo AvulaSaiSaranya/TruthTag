@@ -36,8 +36,7 @@ const INITIAL_INTELLIGENCE_LEDGER = [
     authorizedChannels: 'AuraSound Direct, BestBuy, Currys UK, B&H Photo',
     securityFeature: 'Holographic Void Seal & Micro-Engraved QR Matrix',
     notes: 'Look for rainbow holographic sheen on inner seal and embossed serial tag on headband.',
-    recordDigest: 'SHA256: 9a7f8d1c028e3b4a5f6e7d8c9b0a1f2e3d4c5b6a7f8e9d0c1b2a3f4e5d6c7b8a',
-    reason: 'Official Brand Ledger Match: The submitted identifier matches an authorized manufacturing run registered by AuraSound Labs with zero active counterfeit alerts.'
+    reason: 'Fictional sample record included to demonstrate a registry match workflow.'
   },
   {
     id: 'ledger-002',
@@ -53,8 +52,7 @@ const INITIAL_INTELLIGENCE_LEDGER = [
     authorizedChannels: 'Vitalis Paris Flagship, Sephora, Nordstrom, Mecca',
     securityFeature: 'Tamper-Evident Breakaway Foil & Lot Stamp on Glass Base',
     notes: 'Authentic bottles have lot code screen-printed in white ink on the base of the glass bottle.',
-    recordDigest: 'SHA256: 3c8b1a4f7e2d9c0b5f6a8e1d2c3b4a5f6e7d8c9b0a1f2e3d4c5b6a7f8e9d0c1b',
-    reason: 'Active Cosmetic Batch Registration: Authenticated batch record for LOT-2024-09 confirmed with verified laboratory batch release certificate.'
+    reason: 'Fictional sample record included to demonstrate a registry match workflow.'
   },
   {
     id: 'ledger-003',
@@ -70,8 +68,7 @@ const INITIAL_INTELLIGENCE_LEDGER = [
     authorizedChannels: 'AeroStride Global, Fleet Feet, Dick’s Sporting Goods',
     securityFeature: 'Encrypted NFC Tongue Tag & Embedded RFID Thread',
     notes: 'Inner tongue tag features high-density woven label with crisp vector typography.',
-    recordDigest: 'SHA256: 7d6c5b4a3f2e1d0c9b8a7f6e5d4c3b2a1f0e9d8c7b6a5f4e3d2c1b0a9f8e7d6c',
-    reason: 'Verified Production Record: The model SKU and serial sequence match verified production allocations with authorized distributor records.'
+    reason: 'Fictional sample record included to demonstrate a registry match workflow.'
   },
   {
     id: 'ledger-004',
@@ -84,11 +81,10 @@ const INITIAL_INTELLIGENCE_LEDGER = [
     status: 'warning',
     facility: 'NordicShield Arctic Wear Ltd, Oslo, Norway',
     productionDate: 'Unverified / Flagged Counterfeit Series',
-    authorizedChannels: 'Unauthorized Gray-Market Sellers & Fake Pop-Up Stores',
+    authorizedChannels: 'Fictional warning example; no real seller authorization information.',
     securityFeature: 'Suspected Counterfeit Cloned Hangtag',
-    notes: 'Counterfeiters have duplicated this hangtag barcode across hundreds of non-insulated garments.',
-    recordDigest: 'SHA256: 4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b',
-    reason: '🚨 HIGH RISK COUNTERFEIT WARNING: Identifier is linked to a widely reported counterfeit batch. Unlicensed factories have replicated this tag on low-grade synthetic garments with synthetic fill, posing severe hypothermia risks in sub-zero conditions.'
+    notes: 'Fictional warning scenario only; this is not a real counterfeit notice.',
+    reason: 'Fictional sample warning included to demonstrate a flagged-record workflow. It is not a real recall or safety notice.'
   },
   {
     id: 'ledger-005',
@@ -101,11 +97,10 @@ const INITIAL_INTELLIGENCE_LEDGER = [
     status: 'warning',
     facility: 'OmniPower Hardware Labs, Taipei, Taiwan',
     productionDate: 'May 04, 2025 (Recalled Series)',
-    authorizedChannels: 'Recall Notice: Authorization Revoked Globally',
+    authorizedChannels: 'Fictional warning example; no real seller authorization information.',
     securityFeature: 'Cloned Safety Certification Logo',
-    notes: 'Units with batch B-990-REC or duplicate serial SN-10901 are subject to official safety recall due to cell degradation risks.',
-    recordDigest: 'SHA256: 1f2e3d4c5b6a7f8e9d0c1b2a3f4e5d6c7b8a9f0e1d2c3b4a5f6e7d8c9b0a1f2e',
-    reason: '⚠️ SAFETY RECALL & DUPLICATION ALERT: Batch B-990-REC is officially flagged on the TruthTag safety ledger. In addition, our automated anomaly engine has detected over 420 duplicate queries for serial SN-10901, indicating unauthorized serial cloning.'
+    notes: 'Fictional warning scenario only; not an actual product safety notice.',
+    reason: 'Fictional sample warning included to demonstrate a flagged-record workflow. It is not a real recall or safety notice.'
   },
   {
     id: 'ledger-006',
@@ -121,8 +116,7 @@ const INITIAL_INTELLIGENCE_LEDGER = [
     authorizedChannels: 'Chronos Boutiques, Watches of Switzerland, Bucherer',
     securityFeature: 'Laser-Etched Caseback Serial & Cryptographic Sapphire Card',
     notes: 'Laser engraving on caseback has 0.15mm depth with certified Swiss chronometer seal.',
-    recordDigest: 'SHA256: 8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b',
-    reason: 'Official Master Horology Ledger Entry: Serial number matches verified single-unit registration record in the Geneva brand ledger.'
+    reason: 'Fictional sample record included to demonstrate a registry match workflow.'
   }
 ];
 
@@ -133,6 +127,62 @@ const STORAGE_KEYS = {
   CUSTOM_RECORDS: 'truthtag_custom_records_v3',
   AUDIT_HISTORY: 'truthtag_investigation_history_v3'
 };
+
+async function parseApiResponse(response) {
+  let payload = {};
+  try {
+    payload = await response.json();
+  } catch (error) {
+    if (!(error instanceof SyntaxError)) throw error;
+  }
+  if (!response.ok) {
+    const detail = Array.isArray(payload.detail)
+      ? payload.detail.map(item => item.msg || 'Invalid request.').join(' ')
+      : payload.detail;
+    throw new Error(detail || `Request failed with status ${response.status}.`);
+  }
+  return payload;
+}
+
+function mapApiVerification(data) {
+  return {
+    id: data.scan_id,
+    auditId: data.scan_id,
+    timestamp: new Date(data.scanned_at).toLocaleString(),
+    status: data.outcome,
+    statusTitle: data.outcome_title,
+    productName: data.product_name || 'Unregistered Identifier',
+    brand: data.brand_name || 'Unlisted Authority',
+    category: data.category || 'Unverified Category',
+    productId: data.model_sku || 'N/A',
+    batch: data.batch_number || 'N/A',
+    serial: data.serial_number || 'N/A',
+    submittedQuery: data.submitted_query,
+    matchField: 'Server registry lookup',
+    facility: data.production_facility || 'N/A',
+    productionDate: data.production_date || 'N/A',
+    authorizedChannels: data.authorized_channels || 'Unknown',
+    securityFeature: data.security_feature || 'Unverified',
+    notes: data.inspection_notes || 'No registered inspection notes are available.',
+    recordDigest: null,
+    reason: data.risk_explanation,
+    riskScore: data.risk_score,
+    riskLevel: data.risk_level,
+    duplicateAlert: data.duplicate_alert,
+    scanCount: data.scan_count,
+    anomalyFlags: data.anomaly_flags || [],
+    recommendedActions: data.recommended_actions || [],
+    integrityDisclosure: data.integrity_disclosure,
+    dataSource: 'server',
+    consistencyMatrix: (data.consistency_matrix || []).map(row => ({
+      field: row.field,
+      submitted: row.submitted,
+      registered: row.registered,
+      status: row.status,
+      note: row.diagnostic_rationale
+    }))
+  };
+}
 
 class TruthTagDB {
   static getCustomRecords() {
@@ -254,13 +304,12 @@ class TruthTagVerifier {
     const timestamp = new Date().toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' });
 
     if (match) {
-      const isWarning = match.status === 'warning';
       return {
         id: 'audit-' + Date.now(),
         auditId: auditId,
         timestamp: timestamp,
-        status: isWarning ? 'warning' : 'match',
-        statusTitle: isWarning ? 'Potential Inconsistency' : 'Record Match Found',
+        status: 'inconclusive',
+        statusTitle: 'Local sample — not server-verified',
         productName: match.name,
         brand: match.brand,
         category: match.category,
@@ -274,15 +323,16 @@ class TruthTagVerifier {
         authorizedChannels: match.authorizedChannels,
         securityFeature: match.securityFeature,
         notes: match.notes,
-        recordDigest: match.recordDigest || ('SHA256: ' + Math.random().toString(36).substring(2) + Math.random().toString(36).substring(2)),
-        reason: match.reason,
+        recordDigest: match.recordDigest || 'Local demo record; no cryptographic digest',
+        dataSource: 'local_demo',
+        reason: 'This record is stored in this browser only and has not been checked against a server registry.',
         // Field-by-field consistency matrix
         consistencyMatrix: [
-          { field: 'Product Name', submitted: query.includes(match.name) ? match.name : 'Identifier Query', registered: match.name, status: 'match', note: 'Product commercial title aligned with manufacturer registry.' },
-          { field: 'Brand Entity', submitted: match.brand, registered: match.brand, status: 'match', note: 'Accredited brand authority signature verified.' },
-          { field: 'Product SKU', submitted: match.productId, registered: match.productId, status: 'match', note: 'Model identifier matches authorized product specifications.' },
-          { field: 'Batch / Lot Code', submitted: match.batch, registered: match.batch, status: isWarning ? 'conflict' : 'match', note: isWarning ? 'CRITICAL: Batch code has active counterfeit clone alert.' : 'Lot sequence valid and uncompromised.' },
-          { field: 'Serial Sequence', submitted: match.serial, registered: match.serial, status: isWarning ? 'conflict' : 'match', note: isWarning ? 'Serial number flagged for duplicate anomaly scans.' : 'Serial mathematically fits registered factory allocation.' }
+          { field: 'Product Name', submitted: query, registered: match.name, status: 'unverified', note: 'Local browser data only; no server or brand registry comparison was performed.' },
+          { field: 'Brand Entity', submitted: 'Not submitted', registered: match.brand, status: 'unverified', note: 'Local browser data only; issuer credentials are not verified.' },
+          { field: 'Product SKU', submitted: 'Not submitted', registered: match.productId, status: 'unverified', note: 'Local browser data only; this value was not compared with a server record.' },
+          { field: 'Batch / Lot Code', submitted: 'Not submitted', registered: match.batch, status: 'unverified', note: 'Local browser data only; production is not verified.' },
+          { field: 'Serial Sequence', submitted: 'Not submitted', registered: match.serial, status: 'unverified', note: 'Local browser data only; no server lookup was performed.' }
         ]
       };
     }
@@ -301,20 +351,20 @@ class TruthTagVerifier {
       batch: 'Not Found in Registry',
       serial: 'Not Found in Registry',
       submittedQuery: query,
-      matchField: 'No Matching Cryptographic Hash Found',
+      matchField: 'No matching local sample record',
       facility: 'Unknown / Unverified Facility',
       productionDate: 'No Verified Records Available',
       authorizedChannels: 'Cannot confirm legitimate retail channels',
       securityFeature: 'Unknown / Unspecified Profile',
       notes: 'No packaging security specification available for this identifier.',
       recordDigest: 'NO_RECORD_DIGEST',
-      reason: 'Identifier Not Found in Active Ledger: The submitted identifier could not be matched against any registered brand authority records in TruthTag. This frequently occurs with unauthorized duplicates, regional variants not enrolled in this ledger, or typographical errors.',
+      reason: 'This identifier was not found in the current browser sample catalog.',
       consistencyMatrix: [
-        { field: 'Product Name', submitted: query, registered: 'Not Registered', status: 'missing', note: 'No matching product title in active ledger.' },
-        { field: 'Brand Entity', submitted: 'Unknown', registered: 'Unlisted', status: 'missing', note: 'Authority signature absent from trust anchors.' },
-        { field: 'Product SKU', submitted: query, registered: 'Not Registered', status: 'missing', note: 'SKU absent from participating manufacturer registries.' },
-        { field: 'Batch / Lot Code', submitted: 'Unspecified', registered: 'Unlisted', status: 'missing', note: 'Batch record not found.' },
-        { field: 'Serial Sequence', submitted: 'Unspecified', registered: 'Unlisted', status: 'missing', note: 'Unit sequence not registered.' }
+        { field: 'Product Name', submitted: query, registered: 'Not found', status: 'unverified', note: 'No matching record in the browser sample catalog.' },
+        { field: 'Brand Entity', submitted: 'Not submitted', registered: 'Not found', status: 'unverified', note: 'No brand authority check was performed.' },
+        { field: 'Product SKU', submitted: 'Not submitted', registered: 'Not found', status: 'unverified', note: 'No matching record in the browser sample catalog.' },
+        { field: 'Batch / Lot Code', submitted: 'Not submitted', registered: 'Not found', status: 'unverified', note: 'No matching record in the browser sample catalog.' },
+        { field: 'Serial Sequence', submitted: 'Not submitted', registered: 'Not found', status: 'unverified', note: 'No matching record in the browser sample catalog.' }
       ]
     };
   }
@@ -333,6 +383,9 @@ class TruthTagApp {
     this.webcamStream = null;
     this.activeWizardStep = 1;
     this.wizardData = {};
+    this.verificationController = null;
+    this.lastVerificationQuery = '';
+    this.previousFocusTarget = null;
 
     this.cacheDOMElements();
     this.initSpotlight();
@@ -372,6 +425,11 @@ class TruthTagApp {
 
     this.dossierWrapper = document.getElementById('investigation-dossier');
     this.dossierHeader = document.getElementById('dossier-header');
+    this.dossierExplanation = document.getElementById('dossier-explanation');
+    this.dossierSignals = document.getElementById('dossier-signals');
+    this.investigationError = document.getElementById('investigation-error');
+    this.investigationErrorMessage = document.getElementById('investigation-error-message');
+    this.investigationRetry = document.getElementById('investigation-retry');
     this.dossierTabs = document.querySelectorAll('.dossier-tab');
     this.dossierPanels = document.querySelectorAll('.dossier-tab-content');
     this.inspectorTableBody = document.getElementById('inspector-table-body');
@@ -454,6 +512,7 @@ class TruthTagApp {
     this.modalScannerIdle = document.getElementById('modal-scanner-idle');
     this.modalCameraToggleBtn = document.getElementById('modal-camera-toggle-btn');
     this.modalQrFile = document.getElementById('modal-qr-file');
+    this.scannerFeedback = document.getElementById('scanner-feedback');
     this.scannerPresetBtns = document.querySelectorAll('.scanner-preset-btn');
 
     // Command Palette
@@ -466,6 +525,8 @@ class TruthTagApp {
     // FAQs & Contact
     this.faqItems = document.querySelectorAll('.faq-item');
     this.contactForm = document.getElementById('contact-form');
+    this.contactSubmitButton = document.getElementById('c-submit-btn');
+    this.contactType = document.getElementById('c-type');
 
     // Privacy Modal
     this.privacyModal = document.getElementById('privacy-modal');
@@ -691,20 +752,20 @@ class TruthTagApp {
 
     if (this.modalQrFile) {
       this.modalQrFile.addEventListener('change', (e) => {
-        if (e.target.files && e.target.files[0]) {
-          const fname = e.target.files[0].name.toLowerCase();
-          this.closeScannerModal();
-          this.showToast(`Analyzing packaging scan: ${fname}...`, 'info');
-          let payload = 'AUD-9921-X';
-          if (fname.includes('warn') || fname.includes('nordic') || fname.includes('fake')) payload = 'NS-8800';
-          else if (fname.includes('serum') || fname.includes('vitalis')) payload = 'VTL-402';
-          setTimeout(() => {
-            this.heroInput.value = payload;
-            this.runVerification(payload);
-          }, 800);
-        }
+        const file = e.target.files && e.target.files[0];
+        if (file) this.identifyUploadedImage(file);
+        e.target.value = '';
       });
     }
+    if (this.investigationRetry) {
+      this.investigationRetry.addEventListener('click', () => {
+        if (this.lastVerificationQuery) this.runVerification(this.lastVerificationQuery);
+      });
+    }
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && !this.scannerModal.hidden) this.closeScannerModal();
+      if (e.key === 'Escape' && !this.privacyModal.hidden) this.closePrivacyModal();
+    });
 
     // Dossier Tabs Navigation
     this.dossierTabs.forEach(tab => {
@@ -728,13 +789,16 @@ class TruthTagApp {
     // Dossier Action Buttons
     if (this.btnPrintDossier) this.btnPrintDossier.addEventListener('click', () => window.print());
     if (this.btnCopyDossierLink) {
-      this.btnCopyDossierLink.addEventListener('click', () => {
+      this.btnCopyDossierLink.addEventListener('click', async () => {
         if (this.currentInvestigation) {
-          navigator.clipboard?.writeText(this.currentInvestigation.recordDigest).then(() => {
-            this.showToast('Cryptographic audit digest copied to clipboard!', 'success');
-          }).catch(() => {
-            this.showToast(`Audit ID: ${this.currentInvestigation.auditId}`, 'info');
-          });
+          const auditRef = this.currentInvestigation.auditId;
+          try {
+            if (!navigator.clipboard?.writeText) throw new Error('Clipboard is unavailable.');
+            await navigator.clipboard.writeText(auditRef);
+            this.showToast('Audit reference copied to clipboard.', 'success');
+          } catch {
+            this.showToast(`Audit reference: ${auditRef}`, 'info');
+          }
         }
       });
     }
@@ -851,73 +915,95 @@ class TruthTagApp {
     }
 
     // Privacy Modal
-    if (this.triggerPrivacyModal) this.triggerPrivacyModal.addEventListener('click', () => this.privacyModal.hidden = false);
-    if (this.triggerTermsModal) this.triggerTermsModal.addEventListener('click', () => this.privacyModal.hidden = false);
-    if (this.privacyModalClose) this.privacyModalClose.addEventListener('click', () => this.privacyModal.hidden = true);
-    if (this.privacyModalAck) this.privacyModalAck.addEventListener('click', () => this.privacyModal.hidden = true);
+    if (this.triggerPrivacyModal) this.triggerPrivacyModal.addEventListener('click', () => this.openPrivacyModal());
+    if (this.triggerTermsModal) this.triggerTermsModal.addEventListener('click', () => this.openPrivacyModal());
+    if (this.privacyModalClose) this.privacyModalClose.addEventListener('click', () => this.closePrivacyModal());
+    if (this.privacyModalAck) this.privacyModalAck.addEventListener('click', () => this.closePrivacyModal());
   }
 
   /* --------------------------------------------------------------------------
      Core Investigation Execution Pipeline
      -------------------------------------------------------------------------- */
-  runVerification(query) {
-    if (!query) return;
+  async runVerification(query) {
+    const normalizedQuery = String(query || '').trim();
+    if (!normalizedQuery) return;
 
-    // Scroll to workspace
+    if (this.verificationController) this.verificationController.abort();
+    const controller = new AbortController();
+    this.verificationController = controller;
+    this.lastVerificationQuery = normalizedQuery;
+
     this.jumpTo('#investigation-workspace');
     this.dossierWrapper.hidden = true;
+    this.investigationError.hidden = true;
     this.loader.hidden = false;
-
-    // Multi-phase telemetry loading animation
-    this.loaderFill.style.width = '20%';
-    this.loaderMainMsg.textContent = 'Ingesting packaging identifier...';
-    this.loaderSubMsg.textContent = `Target: "${query}" · Normalizing character matrix`;
+    this.loaderMainMsg.textContent = 'Checking the registry and anomaly signals...';
+    this.loaderSubMsg.textContent = `Query: "${normalizedQuery}"`;
     this.termPill1.className = 'pill-mini active';
     this.termPill2.className = 'pill-mini';
     this.termPill3.className = 'pill-mini';
 
-    setTimeout(() => {
-      this.loaderFill.style.width = '65%';
-      this.loaderMainMsg.textContent = 'Querying brand authority ledger & checking batch collision indices...';
-      this.loaderSubMsg.textContent = 'Cross-referencing cryptographic factory allocation parameters';
-      this.termPill2.className = 'pill-mini active';
-    }, 400);
+    try {
+      const normalizedIdentifier = TruthTagVerifier.cleanString(normalizedQuery);
+      const isLocalDemoRecord = TruthTagDB.getCustomRecords().some(record =>
+        [record.productId, record.batch, record.serial]
+          .some(value => TruthTagVerifier.cleanString(value) === normalizedIdentifier)
+      );
+      let result;
+      if (isLocalDemoRecord) {
+        result = TruthTagVerifier.verify(normalizedQuery);
+        result.dataSource = 'local_demo';
+        result.status = 'inconclusive';
+        result.statusTitle = 'Local sample — not server-verified';
+        result.riskScore = null;
+        result.recordDigest = 'Local demo record; no cryptographic digest';
+        result.reason = 'This user-created sample record is stored only in this browser and has not been verified by a brand authority.';
+        result.recommendedActions = ['Use a registered server-side product identifier for a registry lookup.'];
+        result.consistencyMatrix = result.consistencyMatrix.map(row => ({
+          ...row,
+          status: 'unverified',
+          note: 'Local browser data only; no server or brand registry comparison was performed.'
+        }));
+      } else {
+        this.termPill2.className = 'pill-mini active';
+        const response = await fetch('/api/verify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query: normalizedQuery }),
+          signal: controller.signal
+        });
+        result = mapApiVerification(await parseApiResponse(response));
+      }
+      if (controller.signal.aborted) return;
 
-    setTimeout(() => {
-      this.loaderFill.style.width = '95%';
-      this.loaderMainMsg.textContent = 'Synthesizing evidence-based investigation dossier...';
-      this.loaderSubMsg.textContent = 'Validating physical security features and threat signal logs';
       this.termPill3.className = 'pill-mini active';
-    }, 750);
-
-    setTimeout(() => {
       this.loader.hidden = true;
-      const result = TruthTagVerifier.verify(query);
-      if (!result) return;
-
       this.currentInvestigation = result;
 
-      // Save to localStorage history
-      TruthTagDB.addHistory(result);
-
-      // Render Dossier
+      const saved = TruthTagDB.addHistory(result);
       this.renderDossier(result);
-
-      // Update Bento Dashboard metrics & stream
       this.renderBentoDashboard();
-
-      // Update History view
       this.renderHistory();
 
-      // Toast feedback
-      if (result.status === 'match') {
-        this.showToast('Record Match Confirmed in Brand Registry', 'success');
+      if (!saved) {
+        this.showToast('Lookup completed, but browser history could not be saved.', 'error');
+      } else if (result.dataSource === 'local_demo') {
+        this.showToast('Local sample record loaded; it is not server-verified.', 'info');
+      } else if (result.status === 'match') {
+        this.showToast('A matching record was found in the demo registry.', 'success');
       } else if (result.status === 'warning') {
-        this.showToast('WARNING: Threat Anomaly / Counterfeit Risk Detected', 'error');
+        this.showToast('The registry returned warning signals for this record.', 'error');
       } else {
-        this.showToast('Notice: Verification Inconclusive (Unregistered Identifier)', 'info');
+        this.showToast('No matching record was found; the result is inconclusive.', 'info');
       }
-    }, 1050);
+    } catch (error) {
+      if (error.name === 'AbortError') return;
+      this.loader.hidden = true;
+      this.investigationErrorMessage.textContent = error.message || 'The API could not complete this lookup.';
+      this.investigationError.hidden = false;
+    } finally {
+      if (this.verificationController === controller) this.verificationController = null;
+    }
   }
 
   /* --------------------------------------------------------------------------
@@ -926,30 +1012,58 @@ class TruthTagApp {
   renderDossier(dossier) {
     const isMatch = dossier.status === 'match';
     const isWarning = dossier.status === 'warning';
+    const isLocalDemo = dossier.dataSource === 'local_demo';
+    const riskScore = Number.isFinite(dossier.riskScore) ? dossier.riskScore : null;
+    const riskClass = riskScore === null ? 'unavailable' : (riskScore < 30 ? 'low' : (riskScore < 60 ? 'moderate' : 'high'));
 
     // Header Class
-    this.dossierHeader.className = `dossier-header ${dossier.status}`;
+    const displayStatus = ['match', 'warning', 'inconclusive'].includes(dossier.status)
+      ? dossier.status
+      : 'inconclusive';
+    this.dossierHeader.className = `dossier-header ${displayStatus}`;
 
     this.dossierHeader.innerHTML = `
       <div>
         <span class="dossier-status-pill">
-          ${isMatch ? '● RECORD MATCH FOUND' : (isWarning ? '▲ POTENTIAL INCONSISTENCY / WARNING' : '■ INCONCLUSIVE')}
+          ${isLocalDemo ? 'DEMO RECORD · NOT SERVER-VERIFIED' : (isMatch ? '● REGISTRY RECORD MATCH' : (isWarning ? '▲ WARNING SIGNALS FOUND' : '■ INCONCLUSIVE LOOKUP'))}
         </span>
         <h2 class="dossier-title">${this.escapeHtml(dossier.productName)}</h2>
         <div class="dossier-meta">
-          <span>Authority: <strong>${this.escapeHtml(dossier.brand)}</strong></span>
+          <span>Brand field: <strong>${this.escapeHtml(dossier.brand)}</strong></span>
           <span>•</span>
           <span>Category: ${this.escapeHtml(dossier.category)}</span>
           <span>•</span>
-          <span>Audit Ref: <code>${dossier.auditId}</code></span>
+          <span>Audit Ref: <code>${this.escapeHtml(dossier.auditId)}</code></span>
         </div>
       </div>
       <div class="dossier-hash-block">
-        <span class="mono-meta">Cryptographic Digest</span>
-        <span class="mono-hash">${dossier.recordDigest.slice(0, 24)}...</span>
-        <span class="mono-meta" style="margin-top: 4px;">Timestamp: ${dossier.timestamp}</span>
+        <div class="dossier-risk-score ${riskClass}" ${riskScore === null ? 'role="status"' : `role="meter" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${riskScore}"`}>
+          <span class="mono-meta">${riskScore === null ? 'Risk score unavailable' : 'Heuristic risk score'}</span>
+          <strong>${riskScore === null ? 'Not scored' : `${riskScore} / 100`}</strong>
+          ${riskScore === null ? '' : `<div class="risk-score-track"><span style="width:${Math.max(0, Math.min(100, riskScore))}%"></span></div><span class="risk-score-level">${this.escapeHtml(dossier.riskLevel || 'Interpret with the evidence below')}</span>`}
+          <span class="risk-score-note">Lower values mean fewer detected signals; this is not a probability of authenticity.</span>
+        </div>
+        <span class="mono-meta">API audit reference</span>
+        <span class="mono-hash">${this.escapeHtml(dossier.recordDigest || dossier.auditId)}</span>
+        <span class="mono-meta">Timestamp: ${this.escapeHtml(dossier.timestamp)}</span>
       </div>
     `;
+    this.dossierExplanation.textContent = dossier.reason || 'No additional explanation was provided by the registry.';
+    const signals = [];
+    if (dossier.duplicateAlert) signals.push(`Repeat scan signal · scan ${dossier.scanCount || 'count unavailable'}`);
+    const signalLabels = {
+      SAMPLE_BATCH_FLAGGED: 'Sample batch is marked flagged',
+      SAMPLE_BATCH_MARKED_RECALLED: 'Sample batch is marked recalled (not a real safety notice)',
+      SAMPLE_IDENTIFIER_MARKED_FLAGGED: 'Sample identifier is marked flagged',
+      HIGH_REPEAT_LOOKUP_COUNT: 'High repeat-lookup count; this does not establish cloning',
+      BRAND_METADATA_MISMATCH: 'Submitted brand conflicts with the stored record',
+      MODEL_METADATA_MISMATCH: 'Submitted model conflicts with the stored record',
+      BATCH_METADATA_MISMATCH: 'Submitted batch conflicts with the stored record'
+    };
+    (dossier.anomalyFlags || []).forEach(flag => signals.push(signalLabels[flag] || flag.replace(/_/g, ' ').toLowerCase()));
+    this.dossierSignals.innerHTML = signals.length
+      ? signals.map(signal => `<span class="dossier-signal">${this.escapeHtml(signal)}</span>`).join('')
+      : `<span class="dossier-signal neutral">${isLocalDemo ? 'Local-only sample data' : 'No anomaly flags returned'}</span>`;
 
     // 1. Consistency Inspector Table
     this.inspectorTableBody.innerHTML = dossier.consistencyMatrix.map(row => {
@@ -961,6 +1075,12 @@ class TruthTagApp {
       } else if (row.status === 'missing') {
         badgeClass = 'missing';
         badgeLabel = 'UNREGISTERED';
+      } else if (row.status === 'unverified') {
+        badgeClass = 'missing';
+        badgeLabel = 'NOT COMPARED';
+      } else if (row.status !== 'match') {
+        badgeClass = 'missing';
+        badgeLabel = 'UNVERIFIED';
       }
 
       return `
@@ -975,12 +1095,14 @@ class TruthTagApp {
     }).join('');
 
     const matchedScore = dossier.consistencyMatrix.filter(r => r.status === 'match').length;
-    this.inspectorScoreBadge.textContent = `${matchedScore}/5 PARAMETERS VALIDATED`;
-    if (matchedScore === 5) {
+    const flaggedScore = dossier.consistencyMatrix.filter(r => r.status === 'conflict' || r.status === 'missing').length;
+    this.inspectorScoreBadge.textContent = isLocalDemo
+      ? 'Local record fields only · not independently verified'
+      : `${matchedScore} fields match stored values · ${flaggedScore} flagged · ${dossier.consistencyMatrix.filter(r => r.status === 'unverified').length} not compared`;
+    if (flaggedScore === 0 && !isLocalDemo) {
       this.inspectorScoreBadge.style.color = 'var(--accent-lime)';
-    } else if (isWarning) {
+    } else if (isWarning || flaggedScore > 0) {
       this.inspectorScoreBadge.style.color = 'var(--status-warning)';
-      this.inspectorScoreBadge.textContent = `ANOMALY DETECTED IN RECORD`;
     } else {
       this.inspectorScoreBadge.style.color = 'var(--status-inconclusive)';
     }
@@ -991,7 +1113,7 @@ class TruthTagApp {
     // 3. Provenance & Previous Checks
     document.getElementById('prov-authority').textContent = dossier.brand;
     document.getElementById('prov-timestamp').textContent = dossier.productionDate;
-    document.getElementById('prov-digest').textContent = dossier.recordDigest;
+    document.getElementById('prov-digest').textContent = dossier.auditId;
     document.getElementById('prov-channels').textContent = dossier.authorizedChannels;
 
     const trail = TruthTagDB.getHistory().filter(h => h.productId === dossier.productId);
@@ -1000,7 +1122,7 @@ class TruthTagApp {
       trailEl.innerHTML = trail.slice(0, 5).map(t => `
         <li class="trail-item">
           <span>Query: <code class="font-mono">${this.escapeHtml(t.submittedQuery)}</code></span>
-          <span class="mono-meta">${t.timestamp}</span>
+          <span class="mono-meta">${this.escapeHtml(t.timestamp)}</span>
         </li>
       `).join('');
     } else {
@@ -1008,29 +1130,15 @@ class TruthTagApp {
     }
 
     // 4. Physical Authentication Guide
-    this.physicalGuideContainer.innerHTML = `
-      <div class="guide-step-card">
-        <div class="guide-step-num">1</div>
-        <div class="guide-step-info">
-          <h4>Inspect Registered Packaging Security Seal</h4>
-          <p>This product line is registered with: <strong>${this.escapeHtml(dossier.securityFeature)}</strong>. Verify that the outer carton bears an intact seal matching this exact specification.</p>
-        </div>
-      </div>
-      <div class="guide-step-card">
-        <div class="guide-step-num">2</div>
-        <div class="guide-step-info">
-          <h4>Production Facility &amp; Origin Cross-Check</h4>
-          <p>Authorized factory on record: <strong>${this.escapeHtml(dossier.facility)}</strong>. Ensure packaging markings and country of origin labels correspond.</p>
-        </div>
-      </div>
-      <div class="guide-step-card">
-        <div class="guide-step-num">3</div>
-        <div class="guide-step-info">
-          <h4>Authorized Distributor Verification</h4>
-          <p>Genuine units are distributed via: <strong>${this.escapeHtml(dossier.authorizedChannels)}</strong>. Be wary of unauthorized marketplace storefronts offering abnormal 60%+ discounts.</p>
-        </div>
-      </div>
-    `;
+    const guideActions = dossier.recommendedActions || [];
+    this.physicalGuideContainer.innerHTML = guideActions.length
+      ? guideActions.map((action, index) => `
+          <div class="guide-step-card">
+            <div class="guide-step-num">${index + 1}</div>
+            <div class="guide-step-info"><h4>Recommended next step</h4><p>${this.escapeHtml(action)}</p></div>
+          </div>
+        `).join('')
+      : `<div class="guide-step-card"><div class="guide-step-info"><h4>Physical inspection</h4><p>Compare packaging and identifiers with information from the manufacturer. Digital record matching alone cannot establish physical authenticity.</p></div></div>`;
 
     // Make dossier visible & default to tab 1
     this.dossierWrapper.hidden = false;
@@ -1046,11 +1154,11 @@ class TruthTagApp {
     const statusColor = isMatch ? '#A3E635' : (isWarning ? '#EF4444' : '#F59E0B');
 
     const nodes = [
-      { id: 'brand', label: dossier.brand, sub: 'Brand Authority', x: 120, y: 190, color: '#A3E635', r: 36, details: `Accredited Brand Authority: ${dossier.brand}. Registered cryptographic issuer.` },
-      { id: 'facility', label: 'Factory Plant', sub: dossier.facility.split(',')[0], x: 280, y: 80, color: '#10B981', r: 30, details: `Manufacturing Facility: ${dossier.facility}. Validated production facility.` },
-      { id: 'product', label: dossier.productId, sub: 'Model SKU', x: 420, y: 190, color: statusColor, r: 38, details: `Product Model: ${dossier.productName} (SKU: ${dossier.productId}).` },
-      { id: 'batch', label: dossier.batch, sub: 'Batch / Lot', x: 580, y: 100, color: isWarning ? '#EF4444' : '#A3E635', r: 32, details: `Batch Code: ${dossier.batch}. Production allocation verification.` },
-      { id: 'serial', label: dossier.serial, sub: 'Serial Identifier', x: 700, y: 220, color: statusColor, r: 34, details: `Unit Serial: ${dossier.serial}. Individual cryptographic serialization.` },
+      { id: 'brand', label: dossier.brand, sub: 'Brand field', x: 120, y: 190, color: '#A3E635', r: 36, details: `Brand field in returned record: ${dossier.brand}. This demo does not cryptographically verify the issuer.` },
+      { id: 'facility', label: 'Factory Plant', sub: dossier.facility.split(',')[0], x: 280, y: 80, color: '#10B981', r: 30, details: `Facility field in returned record: ${dossier.facility}.` },
+      { id: 'product', label: dossier.productId, sub: 'Model SKU', x: 420, y: 190, color: statusColor, r: 38, details: `Product fields in returned record: ${dossier.productName} (SKU: ${dossier.productId}).` },
+      { id: 'batch', label: dossier.batch, sub: 'Batch / Lot', x: 580, y: 100, color: isWarning ? '#EF4444' : '#A3E635', r: 32, details: `Batch field returned in sample record: ${dossier.batch}.` },
+      { id: 'serial', label: dossier.serial, sub: 'Serial Identifier', x: 700, y: 220, color: statusColor, r: 34, details: `Serial field returned by registry: ${dossier.serial}.` },
       { id: 'seal', label: 'Security Seal', sub: dossier.securityFeature.split('&')[0], x: 480, y: 320, color: '#38BDF8', r: 28, details: `Physical Seal Profile: ${dossier.securityFeature}.` }
     ];
 
@@ -1163,36 +1271,40 @@ class TruthTagApp {
     // Donut SVG calculations (circumference = 2 * PI * 38 ≈ 238.76)
     const circ = 238.76;
     if (total === 0) {
-      this.donutSegMatch.style.strokeDashoffset = '0';
-      this.donutSegWarning.style.strokeDashoffset = `${circ}`;
-      this.donutSegInconclusive.style.strokeDashoffset = `${circ}`;
-      this.donutCenterRate.textContent = '100%';
+      [this.donutSegMatch, this.donutSegWarning, this.donutSegInconclusive].forEach(segment => {
+        segment.style.strokeDasharray = `0 ${circ}`;
+        segment.style.strokeDashoffset = '0';
+      });
+      this.donutCenterRate.textContent = '—';
     } else {
-      const matchPct = matches / total;
-      const warnPct = warnings / total;
-      const inconcPct = inconclusive / total;
-
-      const matchOffset = circ - (circ * matchPct);
-      this.donutSegMatch.style.strokeDashoffset = `${matchOffset}`;
-      this.donutCenterRate.textContent = `${Math.round(matchPct * 100)}%`;
+      const matchLength = circ * matches / total;
+      const warningLength = circ * warnings / total;
+      const inconclusiveLength = circ * inconclusive / total;
+      this.donutSegMatch.style.strokeDasharray = `${matchLength} ${circ}`;
+      this.donutSegMatch.style.strokeDashoffset = '0';
+      this.donutSegWarning.style.strokeDasharray = `${warningLength} ${circ}`;
+      this.donutSegWarning.style.strokeDashoffset = `${-matchLength}`;
+      this.donutSegInconclusive.style.strokeDasharray = `${inconclusiveLength} ${circ}`;
+      this.donutSegInconclusive.style.strokeDashoffset = `${-(matchLength + warningLength)}`;
+      this.donutCenterRate.textContent = `${Math.round(matches / total * 100)}%`;
     }
 
     // Recent telemetry stream
     if (history.length === 0) {
       this.bentoStreamList.innerHTML = `
         <div style="padding: 24px; text-align: center; color: var(--ivory-dim); font-size: 0.8125rem;">
-          No live query activity recorded yet. Run a product verification above.
+          No browser history yet. Run a registry lookup above.
         </div>
       `;
     } else {
       this.bentoStreamList.innerHTML = history.slice(0, 5).map(item => `
         <div class="stream-row">
           <div class="stream-left">
-            <span class="stream-badge ${item.status}">${item.status === 'match' ? 'MATCH' : (item.status === 'warning' ? 'ALERT' : 'UNLISTED')}</span>
+            <span class="stream-badge ${['match', 'warning', 'inconclusive'].includes(item.status) ? item.status : 'inconclusive'}">${item.status === 'match' ? 'MATCH' : (item.status === 'warning' ? 'ALERT' : 'UNLISTED')}</span>
             <span class="stream-sku">${this.escapeHtml(item.productId)}</span>
-            <span class="stream-product">• ${this.escapeHtml(item.productName.slice(0, 22))}...</span>
+            <span class="stream-product">• ${this.escapeHtml((item.productName || 'Unknown record').slice(0, 22))}...</span>
           </div>
-          <span class="stream-time">${item.timestamp}</span>
+          <span class="stream-time">${this.escapeHtml(item.timestamp)}</span>
         </div>
       `).join('');
     }
@@ -1392,7 +1504,6 @@ class TruthTagApp {
   }
 
   finalizeRegistration() {
-    const recordDigest = 'SHA256: ' + Math.random().toString(36).substring(2) + Math.random().toString(36).substring(2);
     const newRecord = {
       id: 'custom-' + Date.now(),
       name: this.wizardData.name,
@@ -1407,21 +1518,25 @@ class TruthTagApp {
       authorizedChannels: this.wizardData.authorizedChannels,
       securityFeature: this.wizardData.securityFeature,
       notes: this.wizardData.notes,
-      recordDigest: recordDigest,
-      reason: `Authorized Brand Enrollment: Registered via TruthTag Studio. Cryptographically validated for authentic manufacturing run.`
+      recordDigest: 'Local demo record; no cryptographic digest',
+      reason: 'This user-created sample record is stored only in this browser and has not been verified by a brand authority.',
+      dataSource: 'local_demo'
     };
 
-    TruthTagDB.saveCustomRecord(newRecord);
+    if (!TruthTagDB.saveCustomRecord(newRecord)) {
+      this.showToast('The sample record could not be saved in this browser. Check local storage availability.', 'error');
+      return;
+    }
     this.studioForm.reset();
     this.switchWizardStep(1);
     this.renderCatalog();
     this.renderBentoDashboard();
 
-    this.showToast(`Product "${newRecord.name}" successfully enrolled in ledger!`, 'success');
+    this.showToast(`Sample "${newRecord.name}" saved in this browser only.`, 'success');
 
     // Prompt user to verify the newly registered product
     setTimeout(() => {
-      if (confirm(`Product enrolled! Would you like to run an instant investigation on SKU "${newRecord.productId}"?`)) {
+      if (confirm(`Local sample saved. Would you like to inspect the demo record for SKU "${newRecord.productId}"?`)) {
         this.heroInput.value = newRecord.productId;
         this.runVerification(newRecord.productId);
       }
@@ -1469,9 +1584,9 @@ class TruthTagApp {
     this.historyList.hidden = false;
 
     this.historyList.innerHTML = filtered.map(item => `
-      <div class="history-log-row" data-history-id="${item.id}">
+      <div class="history-log-row" data-history-id="${this.escapeHtml(item.id)}">
         <div class="log-left">
-          <div class="log-status-dot ${item.status}"></div>
+          <div class="log-status-dot ${['match', 'warning', 'inconclusive'].includes(item.status) ? item.status : 'inconclusive'}"></div>
           <div>
             <div class="log-title">${this.escapeHtml(item.productName)}</div>
             <div class="log-sub">
@@ -1479,7 +1594,7 @@ class TruthTagApp {
               <span>•</span>
               <span>Query: <code class="font-mono">${this.escapeHtml(item.submittedQuery)}</code></span>
               <span>•</span>
-              <span>${item.timestamp}</span>
+              <span>${this.escapeHtml(item.timestamp)}</span>
             </div>
           </div>
         </div>
@@ -1537,50 +1652,75 @@ class TruthTagApp {
      Optical Camera / QR Scanner Viewport
      -------------------------------------------------------------------------- */
   openScannerModal() {
+    this.previousFocusTarget = document.activeElement;
     this.scannerModal.hidden = false;
+    this.scannerFeedback.textContent = '';
+    this.scannerModalClose.focus();
   }
 
   closeScannerModal() {
     this.stopModalWebcam();
     this.scannerModal.hidden = true;
+    if (this.previousFocusTarget && typeof this.previousFocusTarget.focus === 'function') {
+      this.previousFocusTarget.focus();
+    }
+    this.previousFocusTarget = null;
+  }
+
+  async identifyUploadedImage(file) {
+    if (file.size > 10 * 1024 * 1024) {
+      this.scannerFeedback.textContent = 'Image exceeds the 10 MB upload limit.';
+      return;
+    }
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+    if (!allowedTypes.includes(file.type)) {
+      this.scannerFeedback.textContent = 'Choose a JPEG, PNG, WebP, or GIF image.';
+      return;
+    }
+
+    this.scannerFeedback.textContent = 'Validating image upload…';
+    const formData = new FormData();
+    formData.append('file', file);
+    try {
+      const response = await fetch('/api/verify/identify-image', {
+        method: 'POST',
+        body: formData
+      });
+      const result = await parseApiResponse(response);
+      this.scannerFeedback.textContent = result.message;
+      if (result.candidates && result.candidates.length > 0) {
+        const candidates = result.candidates
+          .map(candidate => `${candidate.name} (${candidate.similarity_percentage}% similarity)`)
+          .join('; ');
+        this.scannerFeedback.textContent += ` Candidates for manual review: ${candidates}.`;
+      }
+    } catch (error) {
+      this.scannerFeedback.textContent = error.message || 'Image upload could not be completed.';
+    }
   }
 
   async toggleModalWebcam() {
     if (this.webcamStream) {
       this.stopModalWebcam();
-      this.modalCameraToggleBtn.innerHTML = `
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
-          <circle cx="12" cy="13" r="4"/>
-        </svg>
-        <span>Use Real Camera</span>
-      `;
       return;
     }
 
     try {
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        this.showToast('Camera API not accessible in this environment. Please use simulated optical presets.', 'info');
+        this.scannerFeedback.textContent = 'Camera preview is not available in this browser. Use a sample lookup below.';
         return;
       }
       const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
       this.webcamStream = stream;
       this.modalWebcamVideo.srcObject = stream;
       this.modalWebcamVideo.style.display = 'block';
-      this.modalWebcamVideo.play();
+      await this.modalWebcamVideo.play();
       this.modalScannerIdle.style.display = 'none';
-
-      this.modalCameraToggleBtn.innerHTML = `
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <line x1="1" y1="1" x2="23" y2="23"/>
-          <path d="M21 21H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h3m3-3h6l2 3h4a2 2 0 0 1 2 2v9.34m-7.72-2.06a4 4 0 1 1-5.56-5.56"/>
-        </svg>
-        <span>Turn Off Camera</span>
-      `;
-      this.showToast('Hardware optical camera active. Align packaging tag in reticle.', 'info');
+      this.modalCameraToggleBtn.textContent = 'Turn off camera preview';
+      this.scannerFeedback.textContent = 'Live camera preview only. QR and barcode decoding is not implemented.';
     } catch (err) {
-      console.warn('Camera error', err);
-      this.showToast('Camera access unavailable. Using optical presets.', 'info');
+      this.stopModalWebcam();
+      this.scannerFeedback.textContent = 'Camera access was denied or is unavailable. Use a sample lookup below.';
     }
   }
 
@@ -1591,26 +1731,67 @@ class TruthTagApp {
     }
     this.modalWebcamVideo.style.display = 'none';
     this.modalScannerIdle.style.display = 'block';
+    if (this.modalCameraToggleBtn) this.modalCameraToggleBtn.textContent = 'Use Camera Preview';
+  }
+
+  openPrivacyModal() {
+    this.previousFocusTarget = document.activeElement;
+    this.privacyModal.hidden = false;
+    this.privacyModalClose.focus();
+  }
+
+  closePrivacyModal() {
+    this.privacyModal.hidden = true;
+    if (this.previousFocusTarget && typeof this.previousFocusTarget.focus === 'function') {
+      this.previousFocusTarget.focus();
+    }
+    this.previousFocusTarget = null;
   }
 
   /* --------------------------------------------------------------------------
      Contact & Incident Reporting Handler
      -------------------------------------------------------------------------- */
-  handleContactSubmit() {
+  async handleContactSubmit() {
     const name = document.getElementById('c-name').value.trim();
     const email = document.getElementById('c-email').value.trim();
     const msg = document.getElementById('c-message').value.trim();
+    const inquiryType = {
+      report: 'counterfeit_report',
+      brand: 'brand_enrollment',
+      audit: 'audit_request',
+      technical: 'general'
+    }[this.contactType.value] || 'general';
 
     let err = false;
     document.querySelectorAll('#contact-form .field-error').forEach(e => e.textContent = '');
 
-    if (!name) { document.getElementById('err-c-name').textContent = 'Reporter name required.'; err = true; }
-    if (!email || !email.includes('@')) { document.getElementById('err-c-email').textContent = 'Valid email required.'; err = true; }
-    if (!msg) { document.getElementById('err-c-message').textContent = 'Incident message required.'; err = true; }
+    if (name.length < 2) { document.getElementById('err-c-name').textContent = 'Enter a name with at least 2 characters.'; err = true; }
+    if (!document.getElementById('c-email').checkValidity()) { document.getElementById('err-c-email').textContent = 'Enter a valid email address.'; err = true; }
+    if (msg.length < 10) { document.getElementById('err-c-message').textContent = 'Enter at least 10 characters of detail.'; err = true; }
     if (err) return;
 
-    this.contactForm.reset();
-    this.showToast('Incident report logged. Intelligence desk notified.', 'success');
+    this.contactSubmitButton.disabled = true;
+    this.contactSubmitButton.textContent = 'Submitting report…';
+    try {
+      const response = await fetch('/api/incidents', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          reporter_name: name,
+          reporter_email: email,
+          inquiry_type: inquiryType,
+          message: msg
+        })
+      });
+      const result = await parseApiResponse(response);
+      this.contactForm.reset();
+      this.showToast(`Report saved to the demo API. Reference: ${result.id}`, 'success');
+    } catch (error) {
+      this.showToast(error.message || 'Report could not be submitted. Your form contents are still available.', 'error');
+    } finally {
+      this.contactSubmitButton.disabled = false;
+      this.contactSubmitButton.innerHTML = '<span>Submit Incident Dossier</span><span class="btn-arrow">→</span>';
+    }
   }
 
   /* --------------------------------------------------------------------------

@@ -3,21 +3,20 @@ TruthTag Intelligence Platform — Pydantic Validation Models
 Clean schemas for request validation, structured responses, and serialization.
 """
 
-from pydantic import BaseModel, Field, EmailStr
-from typing import Optional, List, Dict, Any
+from pydantic import BaseModel, Field, EmailStr, field_validator
+from typing import Annotated, Optional, List, Dict, Any
 from datetime import datetime
 
 # --- Authentication Schemas ---
 class UserRegisterRequest(BaseModel):
     username: str = Field(..., min_length=3, max_length=50)
     email: EmailStr
-    password: str = Field(..., min_length=6, max_length=128)
-    role: Optional[str] = Field("user", pattern="^(user|brand_rep|admin)$")
-    brand_id: Optional[str] = None
+    password: str = Field(..., min_length=12, max_length=128)
+    role: str = Field("user", pattern="^user$")
 
 class UserLoginRequest(BaseModel):
-    email_or_username: str
-    password: str
+    email_or_username: str = Field(..., min_length=1, max_length=254)
+    password: str = Field(..., min_length=1, max_length=128)
 
 class UserResponse(BaseModel):
     id: str
@@ -34,11 +33,19 @@ class AuthTokenResponse(BaseModel):
 
 # --- Verification Schemas ---
 class VerifyRequest(BaseModel):
-    query: str = Field(..., min_length=1, description="Serial number, QR payload, SKU, or Batch number")
+    query: str = Field(..., min_length=1, max_length=256, description="Serial number, QR payload, SKU, or batch number")
     query_type: Optional[str] = Field("auto", pattern="^(auto|serial|qr|sku|batch)$")
-    submitted_brand: Optional[str] = None
-    submitted_model: Optional[str] = None
-    submitted_batch: Optional[str] = None
+    submitted_brand: Optional[str] = Field(None, max_length=200)
+    submitted_model: Optional[str] = Field(None, max_length=100)
+    submitted_batch: Optional[str] = Field(None, max_length=100)
+
+    @field_validator("query")
+    @classmethod
+    def query_must_not_be_blank(cls, value: str) -> str:
+        query = value.strip()
+        if not query:
+            raise ValueError("Query must not be blank.")
+        return query
 
 class ConsistencyField(BaseModel):
     field: str
@@ -76,13 +83,13 @@ class VerificationResponse(BaseModel):
     # Anomaly / Duplicate Scan Signals
     scan_count: int = 1
     duplicate_alert: bool = False
-    anomaly_flags: List[str] = []
+    anomaly_flags: List[str] = Field(default_factory=list)
     
     # Field-by-field consistency matrix
-    consistency_matrix: List[ConsistencyField] = []
+    consistency_matrix: List[ConsistencyField] = Field(default_factory=list)
     
     # Recommended Next Steps & Transparency
-    recommended_actions: List[str] = []
+    recommended_actions: List[str] = Field(default_factory=list)
     integrity_disclosure: str
 
 # --- Image Identification Schemas ---
@@ -101,7 +108,7 @@ class ImageIdentificationResponse(BaseModel):
     status: str
     message: str
     uploaded_file_name: str
-    candidates: List[VisualMatchCandidate] = []
+    candidates: List[VisualMatchCandidate] = Field(default_factory=list)
     manual_search_recommended: bool = False
     disclaimer: str
 
@@ -132,7 +139,7 @@ class PriceHistoryPoint(BaseModel):
 
 class ListingPriceHistory(BaseModel):
     retailer_name: str
-    history: List[PriceHistoryPoint] = []
+    history: List[PriceHistoryPoint] = Field(default_factory=list)
 
 class ProductPricingResponse(BaseModel):
     product_id: str
@@ -144,8 +151,8 @@ class ProductPricingResponse(BaseModel):
     price_change_90d_pct: float
     deal_rating: str # 'Below Historical Range', 'Fair Market Price', 'Above Average'
     deal_description: str
-    listings: List[RetailerListingResponse] = []
-    historical_chart_data: List[ListingPriceHistory] = []
+    listings: List[RetailerListingResponse] = Field(default_factory=list)
+    historical_chart_data: List[ListingPriceHistory] = Field(default_factory=list)
     total_observations_count: int
     last_observation_date: str
 
@@ -171,7 +178,7 @@ class TrustReportResponse(BaseModel):
 # --- Watchlist & Alerts ---
 class WatchlistCreateRequest(BaseModel):
     product_id: str
-    target_price: Optional[float] = None
+    target_price: Optional[float] = Field(None, gt=0, allow_inf_nan=False)
 
 class WatchlistResponse(BaseModel):
     id: str
@@ -187,11 +194,11 @@ class WatchlistResponse(BaseModel):
 
 # --- Incidents / Counterfeit Reports ---
 class IncidentCreateRequest(BaseModel):
-    reporter_name: str = Field(..., min_length=2)
+    reporter_name: str = Field(..., min_length=2, max_length=200)
     reporter_email: EmailStr
     inquiry_type: str = Field("counterfeit_report", pattern="^(counterfeit_report|brand_enrollment|audit_request|general)$")
-    product_identifier: Optional[str] = None
-    message: str = Field(..., min_length=10)
+    product_identifier: Optional[str] = Field(None, max_length=256)
+    message: str = Field(..., min_length=10, max_length=5000)
 
 class IncidentResponse(BaseModel):
     id: str
@@ -206,37 +213,37 @@ class IncidentResponse(BaseModel):
 
 class IncidentStatusUpdateRequest(BaseModel):
     status: str = Field(..., pattern="^(pending|under_review|resolved|dismissed)$")
-    admin_notes: Optional[str] = None
+    admin_notes: Optional[str] = Field(None, max_length=5000)
 
 # --- Product & Batch Registration (Brand / Admin) ---
 class ProductCreateRequest(BaseModel):
-    brand_id: str
-    name: str = Field(..., min_length=2)
-    model_sku: str = Field(..., min_length=2)
-    category: str
-    description: Optional[str] = None
-    image_url: Optional[str] = None
-    security_feature: Optional[str] = "Holographic Void Seal"
-    authorized_channels: Optional[str] = None
-    inspection_notes: Optional[str] = None
+    brand_id: str = Field(..., min_length=1, max_length=128)
+    name: str = Field(..., min_length=2, max_length=200)
+    model_sku: str = Field(..., min_length=2, max_length=100)
+    category: str = Field(..., min_length=1, max_length=100)
+    description: Optional[str] = Field(None, max_length=2000)
+    image_url: Optional[str] = Field(None, max_length=1000)
+    security_feature: Optional[str] = Field("Holographic Void Seal", max_length=300)
+    authorized_channels: Optional[str] = Field(None, max_length=1000)
+    inspection_notes: Optional[str] = Field(None, max_length=2000)
 
 class BatchCreateRequest(BaseModel):
-    product_id: str
-    batch_number: str
-    facility: str
-    production_date: str
-    status: Optional[str] = "active"
-    status_notes: Optional[str] = None
-    serial_numbers: List[str] = [] # Optional batch serials to generate
+    product_id: str = Field(..., min_length=1, max_length=128)
+    batch_number: str = Field(..., min_length=1, max_length=100)
+    facility: str = Field(..., min_length=1, max_length=200)
+    production_date: str = Field(..., min_length=1, max_length=32)
+    status: Optional[str] = Field("active", pattern="^(active|flagged|recalled)$")
+    status_notes: Optional[str] = Field(None, max_length=2000)
+    serial_numbers: List[Annotated[str, Field(min_length=1, max_length=128)]] = Field(default_factory=list, max_length=1000)
 
 class BulkImportRequest(BaseModel):
-    records: List[Dict[str, Any]]
+    records: List[Dict[str, Any]] = Field(..., min_length=1, max_length=500)
 
 class BulkImportResponse(BaseModel):
     success_count: int
     error_count: int
-    errors: List[str] = []
-    imported_products: List[str] = []
+    errors: List[str] = Field(default_factory=list)
+    imported_products: List[str] = Field(default_factory=list)
 
 # --- Analytics Dashboard Schema ---
 class AnalyticsDashboardResponse(BaseModel):
@@ -251,6 +258,6 @@ class AnalyticsDashboardResponse(BaseModel):
     active_batches: int
     total_price_observations: int
     supported_retailers: int
-    recent_scans: List[Dict[str, Any]] = []
-    category_distribution: Dict[str, int] = {}
-    top_counterfeit_risk_models: List[Dict[str, Any]] = []
+    recent_scans: List[Dict[str, Any]] = Field(default_factory=list)
+    category_distribution: Dict[str, int] = Field(default_factory=dict)
+    top_counterfeit_risk_models: List[Dict[str, Any]] = Field(default_factory=list)

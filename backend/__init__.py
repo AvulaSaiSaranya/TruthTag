@@ -1,0 +1,1 @@
+"""TruthTag backend package."""

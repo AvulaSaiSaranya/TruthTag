@@ -7,9 +7,13 @@ image identification, multi-retailer price tracking, and administrative controls
 import os
 import uuid
 import json
+import logging
+import sqlite3
+from datetime import datetime
 from pathlib import Path
 from typing import Optional, List, Dict, Any
 from contextlib import asynccontextmanager
+from urllib.parse import quote
 
 from fastapi import FastAPI, Depends, HTTPException, status, UploadFile, File, Form, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -49,6 +53,7 @@ from .models import (
 )
 from .verification_service import run_verification
 from .image_service import identify_product_image
+from .image_service import ALLOWED_CONTENT_TYPES, MAX_IMAGE_SIZE_BYTES
 from .pricing_service import (
     get_product_pricing,
     add_to_watchlist,
@@ -57,11 +62,17 @@ from .pricing_service import (
 )
 from .trust_report_service import generate_product_trust_report
 
+logger = logging.getLogger(__name__)
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Initialize DB and seed dataset on startup
     init_db()
-    seed_database()
+    environment = os.environ.get("TRUTHTAG_ENV", "production").strip().lower()
+    seed_demo_data = os.environ.get("TRUTHTAG_SEED_DEMO_DATA", "false").strip().lower() == "true"
+    if seed_demo_data:
+        if environment not in {"development", "test", "testing"}:
+            raise RuntimeError("Demo seeding is only allowed in development or test environments.")
+        seed_database()
     yield
 
 app = FastAPI(
@@ -71,13 +82,17 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# CORS configuration
+allowed_origins = [
+    origin.strip()
+    for origin in os.environ.get("TRUTHTAG_CORS_ORIGINS", "").split(",")
+    if origin.strip()
+]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=allowed_origins,
+    allow_credentials=False,
+    allow_methods=["GET", "POST", "PATCH", "DELETE"],
+    allow_headers=["Authorization", "Content-Type"],
 )
 
 # -----------------------------------------------------------------------------
@@ -94,8 +109,8 @@ def get_health():
         i_count = cursor.fetchone()[0]
     return {
         "status": "healthy",
-        "ledger_node": "TruthTag Cryptographic Node London-01",
-        "version": "3.9.0-prod",
+        "service": "TruthTag API",
+        "version": app.version,
         "database": "sqlite3_wal_active",
         "registered_products": p_count,
         "registered_identifiers": i_count
@@ -118,16 +133,16 @@ def register_user(req: UserRegisterRequest):
         cursor.execute("""
             INSERT INTO users (id, username, email, password_hash, role, brand_id)
             VALUES (?, ?, ?, ?, ?, ?)
-        """, (user_id, req.username, req.email, hashed, req.role, req.brand_id))
+        """, (user_id, req.username, req.email, hashed, "user", None))
 
-        token = create_access_token({"sub": user_id, "role": req.role, "username": req.username})
+        token = create_access_token({"sub": user_id, "role": "user", "username": req.username})
 
         user_resp = UserResponse(
             id=user_id,
             username=req.username,
             email=req.email,
-            role=req.role,
-            brand_id=req.brand_id,
+            role="user",
+            brand_id=None,
             created_at=str(datetime.now())
         )
         return AuthTokenResponse(access_token=token, user=user_resp)
@@ -202,17 +217,17 @@ def verify_identifier(
 @app.post("/api/verify/identify-image", response_model=ImageIdentificationResponse, tags=["Verification"])
 async def upload_and_identify_image(file: UploadFile = File(...)):
     """
-    Ingest a product image, validate file integrity and size, and perform perceptual
-    visual product-matching to identify probable models and categories.
+    Ingest a product image and validate its declared type, size, and image integrity.
+    Visual product matching is unavailable until verified reference images are configured.
     """
-    if file.content_type not in ("image/jpeg", "image/png", "image/webp", "image/gif"):
+    if file.content_type not in ALLOWED_CONTENT_TYPES:
         raise HTTPException(
             status_code=400,
-            detail="Unsupported file format. Please upload JPEG, PNG, or WebP images."
+            detail="Unsupported file format. Please upload JPEG, PNG, WebP, or GIF images."
         )
 
-    file_bytes = await file.read()
     try:
+        file_bytes = await file.read(MAX_IMAGE_SIZE_BYTES + 1)
         result = identify_product_image(
             file_bytes=file_bytes,
             file_name=file.filename or "uploaded_image.jpg",
@@ -221,8 +236,11 @@ async def upload_and_identify_image(file: UploadFile = File(...)):
         return result
     except ValueError as ve:
         raise HTTPException(status_code=400, detail=str(ve))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Image processing error: {str(e)}")
+    except Exception:
+        logger.exception("Image processing failed")
+        raise HTTPException(status_code=500, detail="Image processing failed.")
+    finally:
+        await file.close()
 
 # -----------------------------------------------------------------------------
 # 5. Multi-Retailer Price Comparison & Historical Tracking
@@ -504,6 +522,9 @@ def create_product_admin(
     current_user: dict = Depends(require_role(["brand_rep", "admin"]))
 ):
     """Register a new product in the brand ledger."""
+    if current_user["role"] == "brand_rep" and req.brand_id != current_user.get("brand_id"):
+        raise HTTPException(status_code=403, detail="Brand representatives can only manage their own brand.")
+
     with get_db() as conn:
         cursor = conn.cursor()
         # Verify brand exists
@@ -517,8 +538,8 @@ def create_product_admin(
                 INSERT INTO products (id, brand_id, name, model_sku, category, description, image_url, security_feature, authorized_channels, inspection_notes)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (prod_id, req.brand_id, req.name, req.model_sku, req.category, req.description, req.image_url, req.security_feature, req.authorized_channels, req.inspection_notes))
-        except Exception as e:
-            raise HTTPException(status_code=400, detail=f"Database error: {str(e)}")
+        except sqlite3.IntegrityError:
+            raise HTTPException(status_code=409, detail="A product with this model SKU is already registered.")
 
         return {"status": "success", "product_id": prod_id, "message": f"Product '{req.name}' successfully enrolled."}
 
@@ -530,9 +551,12 @@ def create_batch_admin(
     """Enroll a new manufacturing batch and generate serial unit records."""
     with get_db() as conn:
         cursor = conn.cursor()
-        cursor.execute("SELECT id FROM products WHERE id = ?", (req.product_id,))
-        if not cursor.fetchone():
+        cursor.execute("SELECT id, brand_id FROM products WHERE id = ?", (req.product_id,))
+        product = cursor.fetchone()
+        if not product:
             raise HTTPException(status_code=404, detail="Product ID does not exist.")
+        if current_user["role"] == "brand_rep" and product["brand_id"] != current_user.get("brand_id"):
+            raise HTTPException(status_code=403, detail="Brand representatives can only manage their own products.")
 
         batch_id = "batch-" + uuid.uuid4().hex[:8]
         cursor.execute("""
@@ -542,13 +566,20 @@ def create_batch_admin(
 
         created_serials = []
         for sn in req.serial_numbers:
+            serial_number = sn.strip()
+            if not serial_number:
+                raise HTTPException(status_code=422, detail="Serial numbers must not be blank.")
+            cursor.execute("SELECT id FROM identifiers WHERE serial_number = ?", (serial_number,))
+            if cursor.fetchone():
+                raise HTTPException(status_code=409, detail=f"Serial number '{serial_number}' is already registered.")
+
             ident_id = "ident-" + uuid.uuid4().hex[:8]
-            qr_payload = f"https://verify.truthtag.io/audit?code={sn}"
+            qr_payload = f"https://verify.truthtag.io/audit?code={quote(serial_number, safe='')}"
             cursor.execute("""
                 INSERT INTO identifiers (id, product_id, batch_id, serial_number, qr_payload, scan_count, status)
                 VALUES (?, ?, ?, ?, ?, 0, 'active')
-            """, (ident_id, req.product_id, batch_id, sn, qr_payload))
-            created_serials.append(sn)
+            """, (ident_id, req.product_id, batch_id, serial_number, qr_payload))
+            created_serials.append(serial_number)
 
         return {
             "status": "success",
@@ -572,31 +603,89 @@ def bulk_import_records(
 
     with get_db() as conn:
         cursor = conn.cursor()
-        # Default brand for import if not specified
-        cursor.execute("SELECT id FROM brands LIMIT 1")
-        default_brand_id = cursor.fetchone()[0]
+        if current_user["role"] == "brand_rep":
+            default_brand_id = current_user.get("brand_id")
+            cursor.execute("SELECT id FROM brands WHERE id = ?", (default_brand_id,))
+            if not default_brand_id or not cursor.fetchone():
+                raise HTTPException(status_code=403, detail="Brand representative account has no valid brand assignment.")
+        else:
+            cursor.execute("SELECT id FROM brands ORDER BY id LIMIT 1")
+            brand = cursor.fetchone()
+            if not brand:
+                raise HTTPException(status_code=400, detail="No brand is available for product import.")
+            default_brand_id = brand["id"]
 
         for idx, rec in enumerate(req.records):
             name = rec.get("name")
             sku = rec.get("model_sku") or rec.get("sku")
-            category = rec.get("category", "General")
             batch_num = rec.get("batch_number") or rec.get("batch")
             serial_num = rec.get("serial_number") or rec.get("serial")
 
-            if not name or not sku:
+            if not isinstance(name, str) or not name.strip() or not isinstance(sku, str) or not sku.strip():
                 errors.append(f"Row {idx+1}: Missing required fields 'name' or 'model_sku'.")
                 continue
 
+            row_fields = {
+                "category": rec.get("category") or "General",
+                "batch_number": batch_num,
+                "serial_number": serial_num,
+                "description": rec.get("description"),
+                "security_feature": rec.get("security_feature") or "Holographic Seal",
+                "facility": rec.get("facility") or "Central Production Facility",
+                "production_date": rec.get("production_date") or str(datetime.now().date()),
+            }
+            invalid_fields = [
+                field for field, value in row_fields.items()
+                if value is not None and not isinstance(value, str)
+            ]
+            if invalid_fields:
+                errors.append(f"Row {idx+1}: Expected text values for {', '.join(invalid_fields)}.")
+                continue
+
+            row_fields = {
+                field: value.strip() if isinstance(value, str) else value
+                for field, value in row_fields.items()
+            }
+            name = name.strip()
+            sku = sku.strip()
+            limits = {
+                "name": 200,
+                "model_sku": 100,
+                "category": 100,
+                "batch_number": 100,
+                "serial_number": 128,
+                "description": 2000,
+                "security_feature": 300,
+                "facility": 200,
+                "production_date": 32,
+            }
+            values = {"name": name, "model_sku": sku, **row_fields}
+            oversized_fields = [
+                field for field, value in values.items()
+                if isinstance(value, str) and len(value) > limits[field]
+            ]
+            if oversized_fields:
+                errors.append(f"Row {idx+1}: Values exceed maximum length for {', '.join(oversized_fields)}.")
+                continue
+
+            category = row_fields["category"] or "General"
+            batch_num = row_fields["batch_number"]
+            serial_num = row_fields["serial_number"]
+
+            savepoint = f"bulk_import_{idx}"
+            cursor.execute(f"SAVEPOINT {savepoint}")
             try:
                 # Check if product exists
-                cursor.execute("SELECT id FROM products WHERE model_sku = ?", (sku,))
+                cursor.execute("SELECT id, brand_id FROM products WHERE model_sku = ?", (sku,))
                 prod = cursor.fetchone()
+                if prod and current_user["role"] == "brand_rep" and prod["brand_id"] != default_brand_id:
+                    raise ValueError("This model SKU is registered to another brand.")
                 if not prod:
                     prod_id = "prod-" + uuid.uuid4().hex[:8]
                     cursor.execute("""
                         INSERT INTO products (id, brand_id, name, model_sku, category, description, security_feature)
                         VALUES (?, ?, ?, ?, ?, ?, ?)
-                    """, (prod_id, default_brand_id, name, sku, category, rec.get("description", ""), rec.get("security_feature", "Holographic Seal")))
+                    """, (prod_id, default_brand_id, name, sku, category, row_fields["description"] or "", row_fields["security_feature"]))
                     imported_products.append(name)
                 else:
                     prod_id = prod["id"]
@@ -610,23 +699,33 @@ def bulk_import_records(
                         cursor.execute("""
                             INSERT INTO batches (id, product_id, batch_number, facility, production_date)
                             VALUES (?, ?, ?, ?, ?)
-                        """, (batch_id, prod_id, batch_num, rec.get("facility", "Central Production Facility"), rec.get("production_date", str(datetime.now().date()))))
+                        """, (batch_id, prod_id, batch_num, row_fields["facility"], row_fields["production_date"]))
                     else:
                         batch_id = batch["id"]
 
                     # If serial specified
                     if serial_num:
-                        cursor.execute("SELECT id FROM identifiers WHERE serial_number = ?", (serial_num,))
-                        if not cursor.fetchone():
+                        cursor.execute("SELECT product_id FROM identifiers WHERE serial_number = ?", (serial_num,))
+                        identifier = cursor.fetchone()
+                        if identifier and identifier["product_id"] != prod_id:
+                            raise ValueError("This serial number is already assigned to another product.")
+                        if not identifier:
                             ident_id = "ident-" + uuid.uuid4().hex[:8]
                             cursor.execute("""
                                 INSERT INTO identifiers (id, product_id, batch_id, serial_number, qr_payload, scan_count)
                                 VALUES (?, ?, ?, ?, ?, 0)
                             """, (ident_id, prod_id, batch_id, serial_num, f"https://verify.truthtag.io/audit?code={serial_num}"))
 
+                cursor.execute(f"RELEASE SAVEPOINT {savepoint}")
                 success_count += 1
-            except Exception as e:
-                errors.append(f"Row {idx+1} ({sku}): {str(e)}")
+            except (ValueError, sqlite3.IntegrityError) as exc:
+                cursor.execute(f"ROLLBACK TO SAVEPOINT {savepoint}")
+                cursor.execute(f"RELEASE SAVEPOINT {savepoint}")
+                if isinstance(exc, sqlite3.IntegrityError):
+                    detail = "A product, batch, or serial number conflicts with an existing record."
+                else:
+                    detail = str(exc)
+                errors.append(f"Row {idx+1} ({sku}): {detail}")
 
     return BulkImportResponse(
         success_count=success_count,
@@ -640,7 +739,34 @@ def list_all_incidents_admin(current_user: dict = Depends(require_role(["brand_r
     """Triage counterfeit incidents and brand alerts."""
     with get_db() as conn:
         cursor = conn.cursor()
-        cursor.execute("SELECT * FROM incidents ORDER BY created_at DESC")
+        if current_user["role"] == "admin":
+            cursor.execute("SELECT * FROM incidents ORDER BY created_at DESC")
+        else:
+            brand_id = current_user.get("brand_id")
+            if not brand_id:
+                raise HTTPException(status_code=403, detail="Brand representative account has no brand assignment.")
+            cursor.execute("""
+                SELECT inc.*
+                FROM incidents inc
+                WHERE EXISTS (
+                    SELECT 1
+                    FROM products p
+                    WHERE p.brand_id = ?
+                      AND (
+                          inc.product_identifier = p.id
+                          OR inc.product_identifier = p.model_sku
+                          OR EXISTS (
+                              SELECT 1 FROM batches b
+                              WHERE b.product_id = p.id AND b.batch_number = inc.product_identifier
+                          )
+                          OR EXISTS (
+                              SELECT 1 FROM identifiers i
+                              WHERE i.product_id = p.id AND i.serial_number = inc.product_identifier
+                          )
+                      )
+                )
+                ORDER BY inc.created_at DESC
+            """, (brand_id,))
         rows = cursor.fetchall()
         return [IncidentResponse(**dict(r)) for r in rows]
 
@@ -667,7 +793,7 @@ def get_anomaly_telemetry(current_user: dict = Depends(require_role(["admin", "b
     """Get high-risk scan patterns and duplicate serial signals."""
     with get_db() as conn:
         cursor = conn.cursor()
-        cursor.execute("""
+        query = """
             SELECT i.serial_number, i.scan_count, i.last_scanned_at, i.status,
                    p.name as product_name, p.model_sku,
                    b.batch_number
@@ -675,9 +801,16 @@ def get_anomaly_telemetry(current_user: dict = Depends(require_role(["admin", "b
             JOIN products p ON i.product_id = p.id
             JOIN batches b ON i.batch_id = b.id
             WHERE i.scan_count > 1 OR i.status != 'active'
-            ORDER BY i.scan_count DESC
-            LIMIT 50
-        """)
+        """
+        params = []
+        if current_user["role"] == "brand_rep":
+            brand_id = current_user.get("brand_id")
+            if not brand_id:
+                raise HTTPException(status_code=403, detail="Brand representative account has no brand assignment.")
+            query += " AND p.brand_id = ?"
+            params.append(brand_id)
+        query += " ORDER BY i.scan_count DESC LIMIT 50"
+        cursor.execute(query, params)
         dupes = [dict(r) for r in cursor.fetchall()]
         return {"duplicate_signals": dupes}
 

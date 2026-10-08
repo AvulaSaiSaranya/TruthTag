@@ -61,7 +61,25 @@ def test_verify_valid_registered_product(client):
     assert data["batch_number"] == "B24-8891"
     assert data["risk_score"] < 40.0
     assert len(data["consistency_matrix"]) == 5
-    assert all(c["status"] == "match" for c in data["consistency_matrix"])
+    assert sum(c["status"] == "match" for c in data["consistency_matrix"]) == 1
+    assert sum(c["status"] == "unverified" for c in data["consistency_matrix"]) == 4
+
+def test_query_type_restricts_identifier_matching(client):
+    wrong_type = client.post("/api/verify", json={"query": "AUD-9921-X", "query_type": "serial"})
+    sku_match = client.post("/api/verify", json={"query": "AUD-9921-X", "query_type": "sku"})
+    batch_match = client.post("/api/verify", json={"query": "B24-8891", "query_type": "batch"})
+
+    assert wrong_type.status_code == 200
+    assert wrong_type.json()["outcome"] == "inconclusive"
+    assert sku_match.status_code == 200
+    assert sku_match.json()["outcome"] == "match"
+    assert batch_match.status_code == 200
+    assert batch_match.json()["outcome"] == "match"
+
+def test_verification_rejects_whitespace_only_query(client):
+    res = client.post("/api/verify", json={"query": "   "})
+    assert res.status_code == 422
+    assert "Query must not be blank" in res.text
 
 def test_verify_unknown_identifier_inconclusive(client):
     """Test verification of an unknown serial/barcode returns Inconclusive, not Genuine."""
@@ -81,7 +99,7 @@ def test_verify_flagged_counterfeit_batch(client):
     assert res.status_code == 200
     data = res.json()
     assert data["outcome"] == "warning"
-    assert "BATCH_FLAGGED_COUNTERFEIT_ALERT" in data["anomaly_flags"]
+    assert "SAMPLE_BATCH_FLAGGED" in data["anomaly_flags"]
     assert data["risk_score"] >= 50.0
 
 def test_verify_duplicate_scan_tracking(client):
@@ -111,12 +129,25 @@ def test_verify_metadata_mismatch_conflict(client):
     # Consistency matrix should have conflict for Model SKU
     sku_row = next(r for r in data["consistency_matrix"] if r["field"] == "Model SKU")
     assert sku_row["status"] == "conflict"
+    assert data["outcome"] == "warning"
+
+def test_verify_submitted_brand_mismatch_is_a_warning(client):
+    res = client.post("/api/verify", json={
+        "query": "SN-772109",
+        "submitted_brand": "Different Brand"
+    })
+    assert res.status_code == 200
+    data = res.json()
+    assert data["outcome"] == "warning"
+    assert "BRAND_METADATA_MISMATCH" in data["anomaly_flags"]
+    brand_row = next(r for r in data["consistency_matrix"] if r["field"] == "Brand Authority")
+    assert brand_row["status"] == "conflict"
 
 # -----------------------------------------------------------------------------
 # 3. Product Image Identification
 # -----------------------------------------------------------------------------
 def test_image_identification_valid_image(client):
-    """Test visual product identification with a valid synthesized JPEG image."""
+    """Validate that images are accepted without claiming unconfigured image matches."""
     img = Image.new("RGB", (200, 200), color=(30, 45, 35))
     buf = io.BytesIO()
     img.save(buf, format="JPEG")
@@ -128,9 +159,10 @@ def test_image_identification_valid_image(client):
     )
     assert res.status_code == 200
     data = res.json()
-    assert data["status"] == "success"
-    assert len(data["candidates"]) > 0
-    assert data["candidates"][0]["confidence_score"] >= 0.50
+    assert data["status"] == "unavailable"
+    assert data["candidates"] == []
+    assert data["manual_search_recommended"] is True
+    assert "no image match was attempted" in data["message"].lower()
     assert "IMAGE RECOGNITION DISCLAIMER" in data["disclaimer"]
 
 def test_image_identification_invalid_file_type(client):
@@ -151,6 +183,20 @@ def test_image_identification_oversized_file(client):
     )
     assert res.status_code == 400
     assert "exceeds maximum allowable size" in res.json()["detail"]
+
+def test_image_identification_rejects_mismatched_content_type(client):
+    """Reject payloads whose declared image type does not match their actual encoding."""
+    img = Image.new("RGB", (20, 20), color=(30, 45, 35))
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    buf.seek(0)
+
+    res = client.post(
+        "/api/verify/identify-image",
+        files={"file": ("product.jpg", buf, "image/jpeg")}
+    )
+    assert res.status_code == 400
+    assert "does not match" in res.json()["detail"]
 
 # -----------------------------------------------------------------------------
 # 4. Multi-Retailer Price Comparison & Historical Price Tracking
@@ -202,7 +248,7 @@ def test_user_registration_and_login(client):
     """Test user registration, password hashing, and token issuance."""
     test_user = f"tester_{io.StringIO().getvalue() or '42'}"
     email = "tester_new@example.com"
-    pwd = "SecurePassword@2026"
+    pwd = "New-User-Password@2026"
 
     # Register
     reg_res = client.post("/api/auth/register", json={
@@ -228,12 +274,131 @@ def test_user_registration_and_login(client):
     assert me_res.status_code == 200
     assert me_res.json()["email"] == email
 
+def test_public_registration_cannot_assign_privileged_roles(client):
+    """Reject attempts to provision elevated roles through public registration."""
+    res = client.post("/api/auth/register", json={
+        "username": "role_escalation",
+        "email": "role_escalation@example.com",
+        "password": "Unprivileged-Password@2026",
+        "role": "admin",
+        "brand_id": "brand-001"
+    })
+    assert res.status_code == 422
+
+def test_invalid_optional_bearer_token_is_rejected(client):
+    """A malformed token must not silently downgrade an authenticated route to anonymous."""
+    res = client.post(
+        "/api/verify",
+        json={"query": "SN-772109"},
+        headers={"Authorization": "Bearer invalid-token"}
+    )
+    assert res.status_code == 401
+
+def test_brand_representative_is_limited_to_own_brand(client):
+    """Brand representatives can manage their own brand but cannot cross tenant boundaries."""
+    login_res = client.post("/api/auth/login", json={
+        "email_or_username": "partner@aurasound.com",
+        "password": "Test-Partner-Only@2026"
+    })
+    assert login_res.status_code == 200
+    headers = {"Authorization": f"Bearer {login_res.json()['access_token']}"}
+
+    foreign_product = client.post("/api/admin/products", json={
+        "brand_id": "brand-002",
+        "name": "Unauthorized Product",
+        "model_sku": "UNAUTH-001",
+        "category": "Electronics"
+    }, headers=headers)
+    assert foreign_product.status_code == 403
+
+    own_product = client.post("/api/admin/products", json={
+        "brand_id": "brand-001",
+        "name": "Partner Product",
+        "model_sku": "PARTNER-001",
+        "category": "Electronics"
+    }, headers=headers)
+    assert own_product.status_code == 200
+
+    foreign_batch = client.post("/api/admin/batches", json={
+        "product_id": "prod-002",
+        "batch_number": "FOREIGN-BATCH",
+        "facility": "Test facility",
+        "production_date": "2026-10-08"
+    }, headers=headers)
+    assert foreign_batch.status_code == 403
+
+    own_batch = client.post("/api/admin/batches", json={
+        "product_id": own_product.json()["product_id"],
+        "batch_number": "PARTNER-BATCH",
+        "facility": "Test facility",
+        "production_date": "2026-10-08",
+        "serial_numbers": ["PARTNER-SERIAL-001"]
+    }, headers=headers)
+    assert own_batch.status_code == 200
+    assert own_batch.json()["enrolled_units_count"] == 1
+
+    foreign_import = client.post("/api/admin/bulk-import", json={
+        "records": [{
+            "name": "Foreign Brand Product",
+            "model_sku": "VTL-402",
+            "batch_number": "FOREIGN-IMPORT"
+        }]
+    }, headers=headers)
+    assert foreign_import.status_code == 200
+    assert foreign_import.json()["success_count"] == 0
+    assert foreign_import.json()["error_count"] == 1
+
+def test_batch_registration_rejects_an_already_registered_serial(client):
+    login_res = client.post("/api/auth/login", json={
+        "email_or_username": "partner@aurasound.com",
+        "password": "Test-Partner-Only@2026"
+    })
+    token = login_res.json()["access_token"]
+    res = client.post("/api/admin/batches", json={
+        "product_id": "prod-001",
+        "batch_number": "DUPLICATE-SERIAL-TEST",
+        "facility": "Test facility",
+        "production_date": "2026-10-08",
+        "serial_numbers": ["SN-772109"]
+    }, headers={"Authorization": f"Bearer {token}"})
+    assert res.status_code == 409
+    assert "already registered" in res.json()["detail"]
+
+def test_brand_representative_incidents_are_scoped_to_brand(client):
+    """Brand representatives only see incident reports linked to their own catalog."""
+    client.post("/api/incidents", json={
+        "reporter_name": "Aura Reporter",
+        "reporter_email": "aura-reporter@example.com",
+        "inquiry_type": "counterfeit_report",
+        "product_identifier": "AUD-9921-X",
+        "message": "This report is linked to the AuraSound catalog."
+    })
+    client.post("/api/incidents", json={
+        "reporter_name": "Nordic Reporter",
+        "reporter_email": "nordic-reporter@example.com",
+        "inquiry_type": "counterfeit_report",
+        "product_identifier": "NS-8800",
+        "message": "This report is linked to the NordicShield catalog."
+    })
+    login_res = client.post("/api/auth/login", json={
+        "email_or_username": "partner@aurasound.com",
+        "password": "Test-Partner-Only@2026"
+    })
+    headers = {"Authorization": f"Bearer {login_res.json()['access_token']}"}
+
+    res = client.get("/api/admin/incidents", headers=headers)
+    assert res.status_code == 200
+    reporters = {incident["reporter_name"] for incident in res.json()}
+    assert "Aura Reporter" in reporters
+    assert "Nordic Reporter" not in reporters
+    assert "Elena Rostova" not in reporters
+
 def test_unauthorized_user_cannot_access_admin_endpoints(client):
     """Test that normal users are forbidden from accessing admin endpoints (RBAC)."""
     # Login as consumer user
     login_res = client.post("/api/auth/login", json={
         "email_or_username": "user@example.com",
-        "password": "User@123"
+        "password": "Test-User-Only@2026"
     })
     assert login_res.status_code == 200
     user_token = login_res.json()["access_token"]
@@ -247,7 +412,7 @@ def test_admin_can_access_admin_endpoints(client):
     """Test that admin user has full access to admin incident portal."""
     login_res = client.post("/api/auth/login", json={
         "email_or_username": "admin@truthtag.io",
-        "password": "Admin@123"
+        "password": "Test-Admin-Only@2026"
     })
     assert login_res.status_code == 200
     admin_token = login_res.json()["access_token"]
@@ -263,7 +428,7 @@ def test_watchlist_operations(client):
     """Test adding product to watchlist, setting target price, and deleting."""
     login_res = client.post("/api/auth/login", json={
         "email_or_username": "user@example.com",
-        "password": "User@123"
+        "password": "Test-User-Only@2026"
     })
     token = login_res.json()["access_token"]
     headers = {"Authorization": f"Bearer {token}"}
@@ -325,7 +490,7 @@ def test_bulk_import_validation(client):
     """Test bulk import with valid records and invalid records error handling."""
     login_res = client.post("/api/auth/login", json={
         "email_or_username": "admin@truthtag.io",
-        "password": "Admin@123"
+        "password": "Test-Admin-Only@2026"
     })
     token = login_res.json()["access_token"]
     headers = {"Authorization": f"Bearer {token}"}
@@ -354,3 +519,30 @@ def test_bulk_import_validation(client):
     assert data["success_count"] == 1
     assert data["error_count"] == 1
     assert "Missing required fields" in data["errors"][0]
+
+def test_bulk_import_rejects_malformed_and_oversized_fields(client):
+    login_res = client.post("/api/auth/login", json={
+        "email_or_username": "admin@truthtag.io",
+        "password": "Test-Admin-Only@2026"
+    })
+    token = login_res.json()["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    res = client.post("/api/admin/bulk-import", json={
+        "records": [
+            {"name": "Malformed Category Product", "model_sku": "MALFORMED-001", "category": {"unexpected": "object"}},
+            {"name": "Oversized SKU Product", "model_sku": "X" * 101}
+        ]
+    }, headers=headers)
+
+    assert res.status_code == 200
+    data = res.json()
+    assert data["success_count"] == 0
+    assert data["error_count"] == 2
+    assert "Expected text values for category" in data["errors"][0]
+    assert "maximum length for model_sku" in data["errors"][1]
+
+def test_demo_seed_refuses_production_environment(monkeypatch):
+    monkeypatch.setenv("TRUTHTAG_ENV", "production")
+    with pytest.raises(RuntimeError, match="disabled outside development and test"):
+        seed_database()

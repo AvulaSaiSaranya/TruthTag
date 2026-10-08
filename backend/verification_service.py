@@ -13,11 +13,10 @@ from .database import get_db
 from .models import VerificationResponse, ConsistencyField
 
 INTEGRITY_DISCLOSURE = (
-    "CRITICAL TRUTHTAG INTEGRITY DISCLOSURE: A positive database match indicates that the submitted "
-    "identifier corresponds to an authentic registered production batch in our ledger. However, counterfeit "
-    "rings routinely clone genuine serial numbers and QR codes onto unauthorized physical packages. "
-    "Treat verification as an evidence-based assessment, and never rely on digital matching alone without "
-    "inspecting physical tamper seals, packaging typography, weight, and merchant authorization."
+    "DEMO LIMITATION: A positive result means that the identifier matched a record in this fictional demo "
+    "database. It does not verify a manufacturer, prove that a physical item is genuine, or establish that "
+    "an identifier has not been copied. Contact the manufacturer or an authorized seller and inspect the "
+    "physical item before relying on a result."
 )
 
 def normalize_identifier(raw: str) -> str:
@@ -36,8 +35,7 @@ def run_verification(
     client_ip: Optional[str] = None
 ) -> VerificationResponse:
     """
-    Perform a complete cryptographic and database verification audit.
-    Evaluates registered records, duplicate scan velocity, and metadata consistency.
+    Compare an identifier with stored demo records and return configured warning signals.
     """
     raw_query = query.strip()
     norm_query = normalize_identifier(raw_query)
@@ -64,19 +62,20 @@ def run_verification(
         matched_record = None
         match_type = None
 
-        # Try matching serial number
-        for row in all_idents:
-            if normalize_identifier(row["serial_number"]) == norm_query:
-                matched_record = row
-                match_type = "serial"
-                break
-            if normalize_identifier(row["qr_payload"]) == norm_query:
-                matched_record = row
-                match_type = "qr"
-                break
+        # Try matching serial numbers and QR payloads only when the selected mode allows it.
+        if query_type in ("auto", "serial", "qr"):
+            for row in all_idents:
+                if query_type in ("auto", "serial") and normalize_identifier(row["serial_number"]) == norm_query:
+                    matched_record = row
+                    match_type = "serial"
+                    break
+                if query_type in ("auto", "qr") and normalize_identifier(row["qr_payload"]) == norm_query:
+                    matched_record = row
+                    match_type = "qr"
+                    break
 
         # Step 2: Fallback to Model SKU or Batch Number or Product Name
-        if not matched_record:
+        if not matched_record and query_type in ("auto", "sku", "batch"):
             cursor.execute("""
                 SELECT NULL as identifier_id, NULL as serial_number, NULL as qr_payload, 0 as scan_count, NULL as last_scanned_at, 'active' as ident_status,
                        p.id as product_id, p.name as product_name, p.model_sku, p.category, p.description, p.image_url,
@@ -90,14 +89,15 @@ def run_verification(
             catalog_rows = cursor.fetchall()
 
             # SKU Match
-            for row in catalog_rows:
-                if normalize_identifier(row["model_sku"]) == norm_query:
-                    matched_record = row
-                    match_type = "sku"
-                    break
+            if query_type in ("auto", "sku"):
+                for row in catalog_rows:
+                    if normalize_identifier(row["model_sku"]) == norm_query:
+                        matched_record = row
+                        match_type = "sku"
+                        break
 
             # Batch Match
-            if not matched_record:
+            if not matched_record and query_type in ("auto", "batch"):
                 for row in catalog_rows:
                     if row["batch_number"] and normalize_identifier(row["batch_number"]) == norm_query:
                         matched_record = row
@@ -105,7 +105,7 @@ def run_verification(
                         break
 
             # Name / Brand Substring Match
-            if not matched_record:
+            if not matched_record and query_type == "auto":
                 for row in catalog_rows:
                     p_name_norm = normalize_identifier(row["product_name"])
                     b_name_norm = normalize_identifier(row["brand_name"])
@@ -136,19 +136,19 @@ def run_verification(
                 outcome="inconclusive",
                 outcome_title="Verification Inconclusive",
                 risk_score=risk_score,
-                risk_level="Moderate Risk (Unverified)",
-                risk_explanation="The submitted identifier was not located in our authorized brand ledger. This may indicate an unregistered regional batch, a typography error, or an unaccredited duplicate.",
+                risk_level="Unverified · score is heuristic",
+                risk_explanation="The identifier was not found in the fictional sample registry. It may be mistyped or absent from this limited dataset; this result alone is not evidence that an item is counterfeit.",
                 scanned_at=now_iso,
                 submitted_query=raw_query,
                 product_id=None,
                 product_name="Unregistered Identifier",
-                brand_name="Unlisted Authority",
+                brand_name="No matching brand field",
                 brand_code="N/A",
                 category="Unverified Category",
                 model_sku="N/A",
                 batch_number="N/A",
                 serial_number="N/A",
-                production_facility="Unregistered Facility",
+                production_facility="Not available",
                 production_date="N/A",
                 authorized_channels="Unknown",
                 security_feature="Unverified",
@@ -163,14 +163,14 @@ def run_verification(
                         submitted=raw_query,
                         registered="No Matching Record",
                         status="unverified",
-                        diagnostic_rationale="Identifier not recognized in active brand ledger."
+                        diagnostic_rationale="Identifier not found in the current sample database."
                     ),
                     ConsistencyField(
                         field="Brand Authority",
                         submitted=submitted_brand or "Not Specified",
                         registered="No Matching Record",
                         status="unverified",
-                        diagnostic_rationale="Authority credentials could not be verified."
+                        diagnostic_rationale="No matching brand record was found in the sample database."
                     ),
                     ConsistencyField(
                         field="Model SKU",
@@ -184,14 +184,14 @@ def run_verification(
                         submitted=submitted_batch or "Not Specified",
                         registered="No Matching Record",
                         status="unverified",
-                        diagnostic_rationale="Lot sequence unrecorded in production databases."
+                        diagnostic_rationale="No matching batch record was found in the sample database."
                     ),
                     ConsistencyField(
                         field="Unit Serial Number",
                         submitted=raw_query if match_type == "serial" else "Not Provided",
                         registered="No Matching Record",
                         status="unverified",
-                        diagnostic_rationale="Serial number missing from cryptographic allocations."
+                        diagnostic_rationale="No matching serial record was found in the sample database."
                     )
                 ],
                 recommended_actions=recommended_actions,
@@ -213,7 +213,7 @@ def run_verification(
 
         anomaly_flags = []
         is_warning = False
-        risk_score = 5.0 # Baseline for authentic registered unit
+        risk_score = 5.0 # Baseline for a record match before configured signals
         risk_reasons = []
 
         # 1. Batch status evaluation
@@ -221,21 +221,21 @@ def run_verification(
         if batch_status == "flagged":
             is_warning = True
             risk_score += 55.0
-            anomaly_flags.append("BATCH_FLAGGED_COUNTERFEIT_ALERT")
-            risk_reasons.append(f"Manufacturing lot '{matched_record['batch_number']}' is actively flagged on the counterfeit risk register.")
+            anomaly_flags.append("SAMPLE_BATCH_FLAGGED")
+            risk_reasons.append(f"Sample batch '{matched_record['batch_number']}' is marked as flagged in the demo database.")
         elif batch_status == "recalled":
             is_warning = True
             risk_score += 70.0
-            anomaly_flags.append("BATCH_OFFICIALLY_RECALLED")
-            risk_reasons.append(f"Batch '{matched_record['batch_number']}' is subject to an active safety recall.")
+            anomaly_flags.append("SAMPLE_BATCH_MARKED_RECALLED")
+            risk_reasons.append(f"Sample batch '{matched_record['batch_number']}' is marked as recalled in the demo database; this is not a real safety notice.")
 
         # 2. Identifier status evaluation
         ident_status = matched_record["ident_status"] or "active"
         if ident_status in ("flagged_cloned", "recalled"):
             is_warning = True
             risk_score += 50.0
-            anomaly_flags.append("SERIAL_FLAGGED_COMPROMISED")
-            risk_reasons.append("This unique unit serial number has been flagged for unauthorized cloning.")
+            anomaly_flags.append("SAMPLE_IDENTIFIER_MARKED_FLAGGED")
+            risk_reasons.append("This sample identifier is marked as flagged in the demo database.")
 
         # 3. Duplicate scan velocity evaluation
         duplicate_alert = False
@@ -245,8 +245,8 @@ def run_verification(
             if current_scan_count >= 10:
                 is_warning = True
                 risk_score += 45.0
-                anomaly_flags.append("HIGH_VELOCITY_SERIAL_CLONING")
-                risk_reasons.append(f"Excessive duplicate scans detected ({current_scan_count} times). Counterfeiters frequently replicate genuine serials onto mass-produced fakes.")
+                anomaly_flags.append("HIGH_REPEAT_LOOKUP_COUNT")
+                risk_reasons.append(f"This identifier has {current_scan_count} recorded lookups in the demo database. Repeat lookups alone do not establish cloning.")
             else:
                 risk_score += 15.0
                 risk_reasons.append(f"Identifier previously verified {current_scan_count - 1} times. If you did not scan this code previously, verify seller authenticity.")
@@ -259,6 +259,13 @@ def run_verification(
             anomaly_flags.append("MODEL_METADATA_MISMATCH")
             risk_reasons.append(f"Submitted model '{submitted_model}' conflicts with registered SKU '{matched_record['model_sku']}'.")
 
+        brand_conflict = False
+        if submitted_brand and normalize_identifier(submitted_brand) != normalize_identifier(matched_record["brand_name"]):
+            brand_conflict = True
+            risk_score += 30.0
+            anomaly_flags.append("BRAND_METADATA_MISMATCH")
+            risk_reasons.append(f"Submitted brand '{submitted_brand}' conflicts with the stored brand field '{matched_record['brand_name']}'.")
+
         batch_conflict = False
         if submitted_batch and matched_record["batch_number"] and normalize_identifier(submitted_batch) != normalize_identifier(matched_record["batch_number"]):
             batch_conflict = True
@@ -269,66 +276,70 @@ def run_verification(
         # Cap risk score at 99.0
         risk_score = min(risk_score, 99.0)
 
-        outcome = "warning" if (is_warning or risk_score >= 40.0) else "match"
+        outcome = "warning" if (is_warning or model_conflict or brand_conflict or batch_conflict or risk_score >= 40.0) else "match"
         outcome_title = "Potential Inconsistency / Warning" if outcome == "warning" else "Registered Record Match Found"
 
         if outcome == "warning":
-            risk_level = "High Risk Anomaly"
-            risk_explanation = " ".join(risk_reasons) or "Suspicious signals or packaging inconsistencies were detected for this registered profile."
+            risk_level = "Elevated Demo Signals"
+            risk_explanation = " ".join(risk_reasons) or "The sample database returned configured warning signals for this record."
             recommended_actions = [
-                "Do NOT rely on packaging markings alone. Inspect holographic security foil and serial laser depth.",
-                "Compare seller against the list of accredited brand distributors.",
-                "File an incident dossier on TruthTag with seller details to assist brand counterfeit investigators.",
-                "Consider pausing use or returning the item if purchased from an unverified gray-market seller."
+                "Treat the warning as a prompt to investigate, not as a verified counterfeit finding.",
+                "Contact the manufacturer or retailer using contact details obtained independently.",
+                "Compare the physical item with manufacturer-provided packaging guidance.",
+                "Use the incident form to submit fictional demo details only."
             ]
         else:
-            risk_level = "Low Risk (Ledger Aligned)"
+            risk_level = "Fewer configured signals"
             risk_explanation = (
-                f"Official Brand Ledger Match: The submitted identifier matches an authorized manufacturing run registered "
-                f"by {matched_record['brand_name']}. No active counterfeit clone alerts are attached to this specific batch sequence."
+                f"The submitted identifier matched a record for {matched_record['brand_name']} in the fictional demo database. "
+                "No configured warning signals were returned for this lookup; this is not a physical authenticity assessment."
             )
             recommended_actions = [
-                "Verify that the physical packaging matches the security feature description below.",
-                "Confirm that the purchase invoice originates from an authorized distribution channel.",
-                "Keep your proof-of-purchase and registered serial number for warranty coverage."
+                "Check packaging and product details with the manufacturer through an independently verified contact channel.",
+                "Confirm the seller and warranty terms directly with the manufacturer.",
+                "Remember that copied identifiers can still match a registry record."
             ]
 
         # Consistency Matrix
+        name_was_queried = match_type == "catalog_search" and norm_query in normalize_identifier(matched_record["product_name"])
+        sku_was_queried = match_type == "sku"
+        batch_was_queried = match_type == "batch"
+        serial_was_queried = match_type == "serial"
         consistency_matrix = [
             ConsistencyField(
                 field="Product Commercial Name",
-                submitted=matched_record["product_name"] if norm_query in normalize_identifier(matched_record["product_name"]) else raw_query,
+                submitted=raw_query,
                 registered=matched_record["product_name"],
-                status="match",
-                diagnostic_rationale="Product title strictly aligns with accredited manufacturer registry."
+                status="match" if name_was_queried else "unverified",
+                diagnostic_rationale="Product name query matched this sample record." if name_was_queried else "Product name was not submitted; this is a field from the matched sample record."
             ),
             ConsistencyField(
                 field="Brand Authority",
-                submitted=submitted_brand or matched_record["brand_name"],
+                submitted=submitted_brand or "Not submitted",
                 registered=matched_record["brand_name"],
-                status="match",
-                diagnostic_rationale=f"Accredited brand authority '{matched_record['brand_name']}' cryptographically verified."
+                status="conflict" if brand_conflict else ("match" if submitted_brand else "unverified"),
+                diagnostic_rationale="Submitted brand conflicts with the stored field." if brand_conflict else ("Submitted brand matches the stored field; issuer credentials are not verified." if submitted_brand else "Brand was not submitted; issuer credentials are not verified.")
             ),
             ConsistencyField(
                 field="Model SKU",
-                submitted=submitted_model or matched_record["model_sku"],
+                submitted=submitted_model or (raw_query if sku_was_queried else "Not submitted"),
                 registered=matched_record["model_sku"],
-                status="conflict" if model_conflict else "match",
-                diagnostic_rationale="Model identifier conflicts with registration record." if model_conflict else "Model specification matches authorized factory allocation."
+                status="conflict" if model_conflict else ("match" if submitted_model or sku_was_queried else "unverified"),
+                diagnostic_rationale="Model identifier conflicts with the stored record." if model_conflict else ("Model identifier matched the stored record." if submitted_model or sku_was_queried else "Model SKU was not submitted; this is a field from the matched sample record.")
             ),
             ConsistencyField(
                 field="Batch / Lot Code",
-                submitted=submitted_batch or matched_record["batch_number"] or "N/A",
+                submitted=submitted_batch or (raw_query if batch_was_queried else "Not submitted"),
                 registered=matched_record["batch_number"] or "N/A",
-                status="conflict" if (batch_status in ("flagged", "recalled") or batch_conflict) else "match",
-                diagnostic_rationale=f"CRITICAL: Batch flagged for counterfeit warnings: {matched_record['status_notes']}" if batch_status != "active" else "Lot sequence active, non-recalled, and uncompromised."
+                status="conflict" if (batch_status in ("flagged", "recalled") or batch_conflict) else ("match" if submitted_batch or batch_was_queried else "unverified"),
+                diagnostic_rationale=(f"Sample batch status: {batch_status}. {matched_record['status_notes'] or ''}".strip() if batch_status != "active" else ("Submitted batch matches the stored sample field." if submitted_batch or batch_was_queried else "Batch was not submitted; production is not verified."))
             ),
             ConsistencyField(
                 field="Unit Serial Number",
-                submitted=matched_record["serial_number"] or raw_query,
+                submitted=raw_query if serial_was_queried else "Not submitted",
                 registered=matched_record["serial_number"] or "Batch-Level Registration",
-                status="conflict" if is_warning else "match",
-                diagnostic_rationale=f"Serial query count: {current_scan_count}. Anomalies flagged." if is_warning else f"Serial sequence mathematically fits registered factory allocation (Scan #{current_scan_count})."
+                status="conflict" if ident_status in ("flagged_cloned", "recalled") else ("match" if serial_was_queried else "unverified"),
+                diagnostic_rationale=(f"Recorded lookup count: {current_scan_count}; configured identifier warning is present." if ident_status in ("flagged_cloned", "recalled") else (f"Serial matched the stored sample record; recorded lookup count: {current_scan_count}." if serial_was_queried else "Serial number was not submitted; this is a field from the matched sample record."))
             )
         ]
 
@@ -355,7 +366,7 @@ def run_verification(
             model_sku=matched_record["model_sku"],
             batch_number=matched_record["batch_number"],
             serial_number=matched_record["serial_number"],
-            production_facility=matched_record["facility"] or "Accredited Facility",
+            production_facility=matched_record["facility"] or "Not specified",
             production_date=matched_record["production_date"] or "N/A",
             authorized_channels=matched_record["authorized_channels"],
             security_feature=matched_record["security_feature"],

@@ -1,7 +1,6 @@
 """
 TruthTag Intelligence Platform — Product Trust Report Synthesizer
-Combines verification records, duplicate scan signals, metadata integrity,
-retailer authorization, and historical price stability into an explainable dossier.
+Combines sample-registry results and configured demo signals into an explainable report.
 """
 
 import uuid
@@ -18,9 +17,7 @@ def generate_product_trust_report(
     client_ip: Optional[str] = None
 ) -> TrustReportResponse:
     """
-    Generate a full evidence-based Product Trust Report.
-    Combines brand provenance, anomaly scan telemetry, retailer price dispersion,
-    and warranty indicators into an explainable assessment.
+    Generate a report with an explicitly heuristic score over fictional sample data.
     """
     # 1. Run Verification
     verification = run_verification(
@@ -41,9 +38,8 @@ def generate_product_trust_report(
     # - Batch flagged alert: -50 points
     # - Recalled batch: -60 points
     # - Duplicate scan detected: -15 points
-    # - Severe cloning velocity (scan_count >= 10): -35 points
-    # - Missing authorized retailers: -10 points
-    # - Price volatility or extreme price spread (> 40% discount vs brand direct): -10 points
+    # - High repeat-lookup count (scan_count >= 10): -25 points
+    # - Sample listings marked unauthorized: -5 points
 
     score = 95
     deductions = []
@@ -56,33 +52,33 @@ def generate_product_trust_report(
             "rationale": "Identifier is unlisted in brand manufacturer ledger."
         })
     else:
-        if "BATCH_FLAGGED_COUNTERFEIT_ALERT" in verification.anomaly_flags:
+        if "SAMPLE_BATCH_FLAGGED" in verification.anomaly_flags:
             score -= 50
             deductions.append({
-                "rule": "ACTIVE_COUNTERFEIT_ALERT",
+                "rule": "SAMPLE_BATCH_FLAGGED",
                 "impact": -50,
-                "rationale": "Batch code is linked to active customs or brand counterfeit advisories."
+                "rationale": "The sample batch is marked as flagged in the demo database."
             })
-        if "BATCH_OFFICIALLY_RECALLED" in verification.anomaly_flags:
+        if "SAMPLE_BATCH_MARKED_RECALLED" in verification.anomaly_flags:
             score -= 60
             deductions.append({
-                "rule": "OFFICIAL_SAFETY_RECALL",
+                "rule": "SAMPLE_BATCH_MARKED_RECALLED",
                 "impact": -60,
-                "rationale": "Batch is subject to official consumer safety recall notice."
+                "rationale": "The sample batch is marked as recalled in the demo database; this is not a real safety notice."
             })
         if verification.duplicate_alert:
             score -= 15
             deductions.append({
                 "rule": "DUPLICATE_SCAN_HISTORY",
                 "impact": -15,
-                "rationale": f"Identifier has been scanned {verification.scan_count} times across sessions."
+                "rationale": f"Identifier has {verification.scan_count} recorded lookups in the demo database."
             })
-        if "HIGH_VELOCITY_SERIAL_CLONING" in verification.anomaly_flags:
+        if "HIGH_REPEAT_LOOKUP_COUNT" in verification.anomaly_flags:
             score -= 25
             deductions.append({
-                "rule": "HIGH_VELOCITY_CLONING_VELOCITY",
+                "rule": "HIGH_REPEAT_LOOKUP_COUNT",
                 "impact": -25,
-                "rationale": "Severe repeat scan velocity indicates probable mass serial cloning."
+                "rationale": "The lookup count crossed the demo's configured threshold; repeat lookups do not establish cloning."
             })
 
     # Pricing dimension deductions
@@ -93,7 +89,7 @@ def generate_product_trust_report(
             deductions.append({
                 "rule": "GRAY_MARKET_LISTINGS_PRESENT",
                 "impact": -5,
-                "rationale": f"Detected {unauth_count} unauthorized third-party listing(s) in circulation."
+                "rationale": f"The sample catalog marks {unauth_count} listing(s) as unauthorized; this status is fictional demo data."
             })
 
     trust_index = max(5, min(99, score))
@@ -116,22 +112,22 @@ def generate_product_trust_report(
         "final_trust_index": trust_index,
         "deductions_applied": deductions,
         "interpretative_ranges": {
-            "80_to_100": "High Confidence Match: Ledger aligned, authorized channels verified, zero active clone alerts.",
-            "50_to_79": "Moderate Risk / Inconclusive: Unregistered code or minor duplicate scan alerts.",
-            "0_to_49": "High Risk Anomaly: Flagged counterfeit batch, safety recall, or severe serial clone velocity."
+            "80_to_100": "Fewer configured demo signals; this is not a probability of authenticity.",
+            "50_to_79": "Some configured demo signals or an inconclusive sample-registry lookup.",
+            "0_to_49": "More configured demo signals; this is not a counterfeit determination."
         }
     }
 
     limitations = [
-        "Digital Match Limitation: Database verification confirms that the identifier sequence was authorized by the brand, but does not guarantee physical authenticity without examining tamper-evident packaging and hardware materials.",
-        "Gray Market Notice: Authentic products sold by unauthorized retailers may lack factory warranty and post-sale technical support.",
-        "Data Freshness: Retailer pricing and availability reflect observations at the indicated timestamps and may vary by regional warehouse."
+        "A registry match means the identifier matched a fictional demo record. It does not verify brand authorization or physical authenticity.",
+        "Retailer authorization labels and prices are fictional sample data, not current market observations.",
+        "The SHA-256 report digest covers the report ID, requested identifier, score, and generation time; it does not validate registry sources or physical authenticity."
     ]
 
     next_steps = [
-        "Cross-reference the physical packaging against the documented security profile (e.g. holographic void seals, laser etching depth).",
-        "Inspect purchase invoice to confirm whether merchant is an authorized distribution partner.",
-        "If you encounter a cloned serial number or suspicious counterfeit, submit an incident report directly to brand investigators through the TruthTag portal."
+        "Compare packaging with manufacturer guidance obtained through an independently verified contact channel.",
+        "Confirm seller and warranty terms directly with the manufacturer.",
+        "The incident form stores reports in the demo database; no real brand-investigation workflow is configured."
     ]
 
     pricing_summary = None

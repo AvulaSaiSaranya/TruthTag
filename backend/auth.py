@@ -16,16 +16,19 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from .database import get_db
 
-SECRET_KEY = os.environ.get("TRUTHTAG_JWT_SECRET", "truthtag-secret-key-prod-super-secure-cryptographic-hash-2026")
+SECRET_KEY = os.environ.get("TRUTHTAG_JWT_SECRET")
+if not SECRET_KEY or len(SECRET_KEY) < 32:
+    raise RuntimeError("TRUTHTAG_JWT_SECRET must be configured with at least 32 characters.")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 # 24 hours
 
 security = HTTPBearer(auto_error=False)
+PASSWORD_HASH_ITERATIONS = 600_000
 
 def hash_password(password: str) -> str:
     """Generate a PBKDF2-HMAC-SHA256 password hash with a random 16-byte salt."""
     salt = os.urandom(16)
-    iterations = 100_000
+    iterations = PASSWORD_HASH_ITERATIONS
     derived = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt, iterations)
     salt_b64 = base64.b64encode(salt).decode("ascii")
     derived_b64 = base64.b64encode(derived).decode("ascii")
@@ -81,6 +84,10 @@ def decode_access_token(token: str) -> dict:
             raise ValueError("Invalid token format")
         
         header_b64, payload_b64, signature_b64 = parts
+        header = json.loads(_b64_url_decode(header_b64).decode("utf-8"))
+        if not isinstance(header, dict) or header.get("alg") != ALGORITHM or header.get("typ") != "JWT":
+            raise ValueError("Unsupported token header")
+
         signing_input = f"{header_b64}.{payload_b64}".encode("utf-8")
         expected_sig = hmac.new(SECRET_KEY.encode("utf-8"), signing_input, hashlib.sha256).digest()
         actual_sig = _b64_url_decode(signature_b64)
@@ -89,14 +96,16 @@ def decode_access_token(token: str) -> dict:
             raise ValueError("Signature mismatch")
         
         payload = json.loads(_b64_url_decode(payload_b64).decode("utf-8"))
-        if payload.get("exp", 0) < int(time.time()):
+        if not isinstance(payload, dict) or not isinstance(payload.get("exp"), int):
+            raise ValueError("Invalid token claims")
+        if payload["exp"] <= int(time.time()):
             raise ValueError("Token expired")
         
         return payload
-    except Exception as e:
+    except (ValueError, TypeError, UnicodeDecodeError, json.JSONDecodeError):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=f"Invalid or expired token: {str(e)}",
+            detail="Invalid or expired token.",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
@@ -104,20 +113,17 @@ def get_optional_current_user(credentials: Optional[HTTPAuthorizationCredentials
     """Retrieve authenticated user if bearer token is present, else None."""
     if not credentials:
         return None
-    try:
-        payload = decode_access_token(credentials.credentials)
-        user_id = payload.get("sub")
-        if not user_id:
-            return None
-        with get_db() as conn:
-            cursor = conn.cursor()
-            cursor.execute("SELECT id, username, email, role, brand_id, created_at FROM users WHERE id = ?", (user_id,))
-            row = cursor.fetchone()
-            if row:
-                return dict(row)
-    except Exception:
-        return None
-    return None
+    payload = decode_access_token(credentials.credentials)
+    user_id = payload.get("sub")
+    if not user_id:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token subject")
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT id, username, email, role, brand_id, created_at FROM users WHERE id = ?", (user_id,))
+        row = cursor.fetchone()
+        if not row:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User account not found")
+        return dict(row)
 
 def get_current_user(credentials: Optional[HTTPAuthorizationCredentials] = Depends(security)) -> dict:
     """Strict authentication dependency returning the current user."""

@@ -8,7 +8,7 @@ import os
 from pathlib import Path
 from contextlib import contextmanager
 
-DB_PATH = Path(os.environ.get("TRUTHTAG_DB_PATH", Path(__file__).parent.parent / "truthtag.db"))
+DB_PATH = Path(os.environ.get("TRUTHTAG_DB_PATH", Path(__file__).parent.parent / "truthtag-local.db"))
 
 def get_connection():
     """Return an optimized SQLite connection with foreign keys and WAL enabled."""

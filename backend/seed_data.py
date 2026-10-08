@@ -6,11 +6,16 @@ Includes authentic products, flagged counterfeit cases, multi-retailer listings,
 """
 
 from datetime import datetime, timedelta, timezone
+import os
 from .database import get_db
 from .auth import hash_password
 
 def seed_database():
     """Populate database with rich initial data if empty."""
+    environment = os.environ.get("TRUTHTAG_ENV", "production").strip().lower()
+    if environment not in {"development", "test", "testing"}:
+        raise RuntimeError("Demo seed data is disabled outside development and test environments.")
+
     with get_db() as conn:
         cursor = conn.cursor()
         
@@ -22,15 +27,16 @@ def seed_database():
         print("[TruthTag Seed] Seeding initial intelligence ledger records...")
 
         # 1. Users
-        users = [
-            ("usr-admin-01", "admin_sarah", "admin@truthtag.io", hash_password("Admin@123"), "admin", None),
-            ("usr-brand-01", "brand_aurasound", "partner@aurasound.com", hash_password("Partner@123"), "brand_rep", "brand-001"),
-            ("usr-demo-01", "consumer_alex", "user@example.com", hash_password("User@123"), "user", None)
-        ]
-        cursor.executemany("""
-            INSERT INTO users (id, username, email, password_hash, role, brand_id)
-            VALUES (?, ?, ?, ?, ?, ?)
-        """, users)
+        if environment in {"test", "testing"}:
+            test_users = [
+                ("usr-admin-01", "admin_sarah", "admin@truthtag.io", hash_password("Test-Admin-Only@2026"), "admin", None),
+                ("usr-brand-01", "brand_aurasound", "partner@aurasound.com", hash_password("Test-Partner-Only@2026"), "brand_rep", "brand-001"),
+                ("usr-demo-01", "consumer_alex", "user@example.com", hash_password("Test-User-Only@2026"), "user", None)
+            ]
+            cursor.executemany("""
+                INSERT INTO users (id, username, email, password_hash, role, brand_id)
+                VALUES (?, ?, ?, ?, ?, ?)
+            """, test_users)
 
         # 2. Brands
         brands = [
@@ -74,25 +80,25 @@ def seed_database():
             ),
             (
                 "prod-004", "brand-004", "NordicShield Extreme Weather Down Parka", "NS-8800", "Apparel",
-                "850-fill power expedition parka engineered for Arctic conditions and severe sub-zero wind.",
+                "Fictional outerwear sample used to demonstrate an identifier warning workflow.",
                 "https://images.unsplash.com/photo-1544923246-77307dd654cb?w=500",
                 "Suspected Counterfeit Cloned Hangtag Series",
-                "Official NordicShield Stores Only (Unauthorized Gray-Market Sellers & Fake Pop-Up Stores Circulating)",
-                "Counterfeiters have duplicated this hangtag barcode across hundreds of non-insulated synthetic garments."
+                "Demo channel field; no real seller authorization information.",
+                "Fictional warning scenario only; this is not a real counterfeit notice."
             ),
             (
                 "prod-005", "brand-005", "OmniCharge MagSafe 100W Power Bank", "OP-100W", "Electronics",
                 "Compact high-density 25,000mAh magnetic portable battery pack with multi-port fast charging.",
                 "https://images.unsplash.com/photo-1609592424109-dd9892f1b177?w=500",
                 "Cloned Safety Certification Logo & Micro-Barcode",
-                "Recall Notice: Authorization Revoked Globally",
-                "Units with batch B-990-REC or duplicate serial SN-10901 are subject to official safety recall due to cell degradation risks."
+                "Fictional warning example; not a real recall or authorization notice.",
+                "Sample warning scenario only; it does not describe an actual product safety issue."
             ),
             (
                 "prod-006", "brand-006", "Chronos Heritage Automatic Diver Watch", "CRN-3301", "Luxury",
                 "Certified Swiss chronometer diver rated to 300m with ceramic bezel and sapphire crystal.",
                 "https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?w=500",
-                "Laser-Etched Caseback Serial & Cryptographic Sapphire Card",
+                "Laser-Etched Caseback Serial & Sample Sapphire Card",
                 "Chronos Boutiques, Watches of Switzerland, Bucherer",
                 "Laser engraving on caseback has 0.15mm depth with certified Swiss chronometer seal."
             )
@@ -104,12 +110,12 @@ def seed_database():
 
         # 4. Batches
         batches = [
-            ("batch-001", "prod-001", "B24-8891", "AuraSound UK Engineering Facility, Oxford, UK", "August 14, 2025", "active", "Standard commercial production batch. Released after multi-point QA inspection."),
-            ("batch-002", "prod-002", "LOT-2024-09", "Vitalis Clean Cosmetics Facility, Provence, France", "September 22, 2025", "active", "Certified organic harvest cosmetic release. Zero contamination notices."),
-            ("batch-003", "prod-003", "B-7712", "AeroStride Technical Footwear Plant, Busan, South Korea", "January 10, 2026", "active", "Official Olympic marathon qualification shoe run."),
-            ("batch-004", "prod-004", "BATCH-FLAGGED-01", "NordicShield Arctic Wear Ltd, Oslo, Norway", "Unverified / Flagged Counterfeit Series", "flagged", "🚨 HIGH RISK COUNTERFEIT WARNING: Identifier is linked to a widely reported counterfeit batch. Unlicensed factories have replicated this tag on low-grade garments."),
-            ("batch-005", "prod-005", "B-990-REC", "OmniPower Hardware Labs, Taipei, Taiwan", "May 04, 2025 (Recalled Series)", "recalled", "⚠️ SAFETY RECALL NOTICE: Batch B-990-REC is officially flagged for high temperature cell degradation."),
-            ("batch-006", "prod-006", "BATCH-CH-44", "Chronos Atelier, Geneva, Switzerland", "November 05, 2025", "active", "Individually numbered master horology batch.")
+            ("batch-001", "prod-001", "B24-8891", "AuraSound UK Engineering Facility, Oxford, UK", "August 14, 2025", "active", "Fictional sample batch record."),
+            ("batch-002", "prod-002", "LOT-2024-09", "Vitalis Clean Cosmetics Facility, Provence, France", "September 22, 2025", "active", "Fictional sample batch record."),
+            ("batch-003", "prod-003", "B-7712", "AeroStride Technical Footwear Plant, Busan, South Korea", "January 10, 2026", "active", "Fictional sample batch record."),
+            ("batch-004", "prod-004", "BATCH-FLAGGED-01", "NordicShield Arctic Wear Ltd, Oslo, Norway", "Unverified / Flagged Counterfeit Series", "flagged", "DEMO ONLY: fictional flagged-batch scenario; not a real counterfeit finding."),
+            ("batch-005", "prod-005", "B-990-REC", "OmniPower Hardware Labs, Taipei, Taiwan", "May 04, 2025 (Recalled Series)", "recalled", "DEMO ONLY: fictional recalled-batch scenario; not an official safety notice."),
+            ("batch-006", "prod-006", "BATCH-CH-44", "Chronos Atelier, Geneva, Switzerland", "November 05, 2025", "active", "Fictional sample batch record.")
         ]
         cursor.executemany("""
             INSERT INTO batches (id, product_id, batch_number, facility, production_date, status, status_notes)
@@ -217,9 +223,9 @@ def seed_database():
         # 9. Initial Scan Events (Populates Intelligence Bento & Audit Trail)
         scan_events = [
             ("scan-seed-01", "ident-001", "prod-001", "usr-demo-01", "AUD-9921-X", "sku", "match", 5.0, '["CLEAN_LEDGER_MATCH"]', "192.168.1.10", (datetime.now(timezone.utc) - timedelta(hours=3)).strftime("%Y-%m-%d %H:%M:%S")),
-            ("scan-seed-02", "ident-004", "prod-004", "usr-demo-01", "NS-8800", "sku", "warning", 85.0, '["BATCH_FLAGGED_COUNTERFEIT_ALERT"]', "192.168.1.12", (datetime.now(timezone.utc) - timedelta(hours=5)).strftime("%Y-%m-%d %H:%M:%S")),
+            ("scan-seed-02", "ident-004", "prod-004", "usr-demo-01", "NS-8800", "sku", "warning", 85.0, '["SAMPLE_BATCH_FLAGGED"]', "192.168.1.12", (datetime.now(timezone.utc) - timedelta(hours=5)).strftime("%Y-%m-%d %H:%M:%S")),
             ("scan-seed-03", "ident-002", "prod-002", "usr-demo-01", "VTL-402", "sku", "match", 5.0, '["CLEAN_LEDGER_MATCH"]', "192.168.1.14", (datetime.now(timezone.utc) - timedelta(hours=8)).strftime("%Y-%m-%d %H:%M:%S")),
-            ("scan-seed-04", "ident-005", "prod-005", None, "SN-10901", "serial", "warning", 92.0, '["BATCH_OFFICIALLY_RECALLED", "HIGH_VELOCITY_SERIAL_CLONING"]', "10.0.0.8", (datetime.now(timezone.utc) - timedelta(hours=14)).strftime("%Y-%m-%d %H:%M:%S")),
+            ("scan-seed-04", "ident-005", "prod-005", None, "SN-10901", "serial", "warning", 92.0, '["SAMPLE_BATCH_MARKED_RECALLED", "HIGH_REPEAT_LOOKUP_COUNT"]', "10.0.0.8", (datetime.now(timezone.utc) - timedelta(hours=14)).strftime("%Y-%m-%d %H:%M:%S")),
             ("scan-seed-05", None, None, None, "UNKNOWN-LOT-992", "auto", "inconclusive", 65.0, '["IDENTIFIER_NOT_FOUND_IN_LEDGER"]', "10.0.0.21", (datetime.now(timezone.utc) - timedelta(hours=22)).strftime("%Y-%m-%d %H:%M:%S"))
         ]
         cursor.executemany("""
@@ -228,9 +234,10 @@ def seed_database():
         """, scan_events)
 
         # 10. Sample Counterfeit Incident
+        incident_user_id = "usr-demo-01" if environment in {"test", "testing"} else None
         incidents = [
             (
-                "inc-001", "usr-demo-01", "Elena Rostova", "elena@example.com", "counterfeit_report",
+                "inc-001", incident_user_id, "Elena Rostova", "elena@example.com", "counterfeit_report",
                 "NS-8800",
                 "Purchased a NordicShield Extreme Weather Down Parka from a pop-up marketplace stall in London. "
                 "The barcode matches NS-8800, but the inner insulation is cheap polyester batting instead of goose down. "
