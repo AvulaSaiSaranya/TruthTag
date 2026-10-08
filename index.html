@@ -1,0 +1,1363 @@
+<!DOCTYPE html>
+<html lang="en" class="dark-theme">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TruthTag Intelligence — Product Authenticity & Provenance Intelligence Platform</title>
+  <meta name="description" content="Investigate product records, uncover packaging and batch inconsistencies, and evaluate counterfeit threat signals with TruthTag Intelligence.">
+  <meta name="keywords" content="product authenticity, counterfeit intelligence, batch verification, serial number provenance, TruthGraph, supply chain transparency">
+
+  <!-- Typography: Syne (Display), Plus Jakarta Sans (Interface), JetBrains Mono (Telemetry) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Syne:wght@600;700;800&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="style.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23A3E635'><path d='M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-2 16l-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8z'/></svg>">
+</head>
+<body data-theme="dark">
+  <!-- Accessibility Skip Link -->
+  <a href="#hero-search-section" class="skip-link">Skip to Product Verification</a>
+
+  <!-- Ambient Grid & Glow Layer -->
+  <div class="ambient-glow" aria-hidden="true"></div>
+  <div class="ambient-grid-overlay" aria-hidden="true"></div>
+
+  <!-- Top System Telemetry Bar -->
+  <div class="system-status-bar">
+    <div class="container status-bar-inner">
+      <div class="status-left">
+        <span class="telemetry-pill">
+          <span class="pulse-lime"></span>
+          <span class="mono-label">TRUTHTAG LEDGER v3.8</span>
+        </span>
+        <span class="telemetry-text">Simulated Intelligence Node: <strong id="node-status-text">Active • 6 Registered Baselines</strong></span>
+      </div>
+      <div class="status-right">
+        <span class="demo-tag">PROTOTYPE / DEMO ENVIRONMENT</span>
+        <button type="button" class="cmd-shortcut-badge" id="cmd-k-trigger" title="Open Global Command Palette (Ctrl+K or Cmd+K)" aria-label="Open Command Palette">
+          <span class="key-symbol">⌘</span><span class="key-char">K</span>
+          <span class="badge-sub">Command Menu</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Sticky Glassmorphic Header -->
+  <header class="site-header" id="site-header">
+    <div class="container header-inner">
+      <a href="#home" class="brand-entity" aria-label="TruthTag Intelligence Home">
+        <div class="brand-mark-hex">
+          <svg viewBox="0 0 28 28" fill="none" class="brand-svg">
+            <path d="M14 2L4 7.5V14.5C4 20.8 8.3 26.5 14 28C19.7 26.5 24 20.8 24 14.5V7.5L14 2Z" fill="url(#brand-grad)" stroke="#A3E635" stroke-width="1.2"/>
+            <path d="M10 14L13 17L18 11" stroke="#050B08" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+            <defs>
+              <linearGradient id="brand-grad" x1="4" y1="2" x2="24" y2="28" gradientUnits="userSpaceOnUse">
+                <stop stop-color="#A3E635"/>
+                <stop offset="1" stop-color="#10B981"/>
+              </linearGradient>
+            </defs>
+          </svg>
+        </div>
+        <div class="brand-typography">
+          <span class="brand-title">Truth<span class="lime-text">Tag</span></span>
+          <span class="brand-division">Intelligence</span>
+        </div>
+      </a>
+
+      <!-- Desktop Nav -->
+      <nav class="nav-cluster" aria-label="Primary Navigation">
+        <ul class="nav-links">
+          <li><a href="#hero-search-section" class="nav-item active">Verify</a></li>
+          <li><a href="#dashboard-section" class="nav-item">Intelligence Bento</a></li>
+          <li><a href="#truthgraph-section" class="nav-item">TruthGraph™</a></li>
+          <li><a href="#database-section" class="nav-item">Explore Records</a></li>
+          <li><a href="#registration-section" class="nav-item">Studio</a></li>
+          <li><a href="#timeline-section" class="nav-item">Protocol</a></li>
+          <li><a href="#safety-section" class="nav-item">Integrity</a></li>
+        </ul>
+      </nav>
+
+      <!-- Header Actions -->
+      <div class="header-utilities">
+        <button type="button" class="btn btn-outline-lime btn-sm" id="header-scanner-btn" aria-label="Open Optical QR Scanner">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"/>
+            <rect x="7" y="7" width="10" height="10" rx="1"/>
+          </svg>
+          <span>Open Scanner</span>
+        </button>
+
+        <a href="#investigation-workspace" class="btn btn-primary-lime btn-sm" id="header-verify-cta">
+          <span>Run Investigation</span>
+          <span class="btn-arrow">→</span>
+        </a>
+
+        <!-- Mobile Menu Toggle -->
+        <button class="mobile-menu-toggle" id="mobile-toggle" aria-expanded="false" aria-controls="mobile-drawer" aria-label="Toggle navigation drawer">
+          <span class="bar"></span>
+          <span class="bar"></span>
+          <span class="bar"></span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Mobile Drawer -->
+    <div class="mobile-drawer" id="mobile-drawer" hidden>
+      <div class="mobile-drawer-content">
+        <ul class="mobile-nav-list">
+          <li><a href="#hero-search-section" class="mobile-nav-link">Verify Product</a></li>
+          <li><a href="#dashboard-section" class="mobile-nav-link">Intelligence Bento</a></li>
+          <li><a href="#truthgraph-section" class="mobile-nav-link">TruthGraph™ Product Map</a></li>
+          <li><a href="#database-section" class="mobile-nav-link">Explore Sample Records</a></li>
+          <li><a href="#registration-section" class="mobile-nav-link">Product Registration Studio</a></li>
+          <li><a href="#history-section" class="mobile-nav-link">Audit History</a></li>
+          <li><a href="#timeline-section" class="mobile-nav-link">Investigation Protocol</a></li>
+          <li><a href="#safety-section" class="mobile-nav-link">Integrity Disclosure</a></li>
+          <li><a href="#faq-section" class="mobile-nav-link">FAQs</a></li>
+        </ul>
+        <div class="mobile-actions">
+          <button type="button" class="btn btn-primary-lime btn-block" id="mobile-scanner-trigger">Launch Scanner Viewport</button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main id="main-content">
+    <!-- PATTERN 1: IMMERSIVE ANIMATED HERO WITH DIRECT SEARCH -->
+    <section class="hero-stage" id="hero-search-section">
+      <div class="container hero-grid">
+        <!-- Hero Content Column -->
+        <div class="hero-narrative">
+          <div class="hero-intel-pill">
+            <span class="pill-dot"></span>
+            <span class="pill-mono">CRYPTOGRAPHIC PRODUCT PROVENANCE</span>
+          </div>
+
+          <h1 class="hero-headline">
+            Authenticity,<br>
+            <span class="highlight-lime">without the guesswork.</span>
+          </h1>
+
+          <p class="hero-lead">
+            Investigate product records, uncover packaging and batch inconsistencies, and make more informed purchasing decisions across global supply chains.
+          </p>
+
+          <!-- Embedded Direct Hero Verification Console -->
+          <div class="hero-search-chassis spotlight-card" data-spotlight>
+            <form id="hero-verify-form" class="hero-search-form" novalidate>
+              <div class="input-telemetry-badge">
+                <span class="dot-active"></span>
+                <span>QUERY INPUT CONSOLE</span>
+              </div>
+              
+              <div class="hero-input-row">
+                <div class="input-icon-box">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="11" cy="11" r="8"/>
+                    <path d="m21 21-4.35-4.35"/>
+                  </svg>
+                </div>
+                
+                <input 
+                  type="text" 
+                  id="hero-query-input" 
+                  class="hero-search-input" 
+                  placeholder="Enter Product ID, Serial, Batch #, or Brand (e.g. AUD-9921-X, NS-8800)..." 
+                  autocomplete="off" 
+                  spellcheck="false"
+                  required
+                >
+                
+                <button type="submit" class="btn btn-primary-lime hero-submit-btn magnetic-btn" id="hero-submit-btn">
+                  <span>Verify Product</span>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <polyline points="9 18 15 12 9 6"/>
+                  </svg>
+                </button>
+              </div>
+
+              <!-- Input Diagnostics & Error Message -->
+              <div class="search-validation-row" id="hero-validation-row" hidden>
+                <span class="validation-text" id="hero-validation-msg"></span>
+              </div>
+
+              <!-- Quick Demo Injection Chips -->
+              <div class="hero-quick-chips">
+                <span class="chips-title">Try Instant Intelligence Cases:</span>
+                <div class="chips-flex">
+                  <button type="button" class="quick-chip match-chip" data-query="AUD-9921-X" title="Test AuraSound Headphones (Record Match Found)">
+                    <span class="chip-status-dot lime"></span>
+                    <span class="chip-id">AUD-9921-X</span>
+                    <span class="chip-desc">AuraSound (Match)</span>
+                  </button>
+                  <button type="button" class="quick-chip warning-chip" data-query="NS-8800" title="Test NordicShield Parka (Flagged Counterfeit Batch Warning)">
+                    <span class="chip-status-dot red"></span>
+                    <span class="chip-id">NS-8800</span>
+                    <span class="chip-desc">NordicShield (Warning)</span>
+                  </button>
+                  <button type="button" class="quick-chip inconclusive-chip" data-query="VTL-SERUM-UNLISTED" title="Test Unlisted Cosmetic Formula (Inconclusive Result)">
+                    <span class="chip-status-dot amber"></span>
+                    <span class="chip-id">UNLISTED-99</span>
+                    <span class="chip-desc">Cosmetic (Inconclusive)</span>
+                  </button>
+                  <button type="button" class="quick-chip match-chip" data-query="AERO-900" title="Test AeroStride Velocity Running Shoes">
+                    <span class="chip-status-dot lime"></span>
+                    <span class="chip-id">AERO-900</span>
+                    <span class="chip-desc">AeroStride Shoes</span>
+                  </button>
+                </div>
+              </div>
+            </form>
+          </div>
+
+          <!-- Trust-oriented Microcopy -->
+          <p class="hero-disclaimer-copy">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"/>
+              <line x1="12" y1="16" x2="12" y2="12"/>
+              <line x1="12" y1="8" x2="12.01" y2="8"/>
+            </svg>
+            <span><strong>Integrity Principle:</strong> TruthTag checks available registered product records and anomaly databases. It does not provide absolute physical guarantees without forensic physical inspection.</span>
+          </p>
+        </div>
+
+        <!-- Hero Visual: Product Identity & Optical Reticle Visualization -->
+        <div class="hero-visual-pane">
+          <div class="interactive-identity-chassis spotlight-card" id="hero-identity-card" data-spotlight>
+            <!-- Glowing Laser Ray Overlay -->
+            <div class="scanner-sweep-beam"></div>
+
+            <div class="chassis-telemetry-header">
+              <div class="node-id-cluster">
+                <span class="mono-meta">IDENTIFIER NODE</span>
+                <span class="mono-hash">SHA256: 7f8c...3b9e</span>
+              </div>
+              <div class="live-sensor-pill">
+                <span class="sensor-dot"></span>
+                <span>OPTICAL RETICLE ACTIVE</span>
+              </div>
+            </div>
+
+            <!-- Stylized 3D Hardware/Package Diagram with Nodes -->
+            <div class="chassis-product-schematic">
+              <div class="schematic-target-reticle">
+                <div class="reticle-corner c-tl"></div>
+                <div class="reticle-corner c-tr"></div>
+                <div class="reticle-corner c-bl"></div>
+                <div class="reticle-corner c-br"></div>
+
+                <div class="schematic-packaging-render">
+                  <div class="box-face box-front">
+                    <div class="box-hologram-strip"></div>
+                    <div class="box-qr-matrix">
+                      <svg viewBox="0 0 60 60" fill="currentColor" class="matrix-svg">
+                        <rect x="5" y="5" width="18" height="18" rx="2" fill="none" stroke="currentColor" stroke-width="3"/>
+                        <rect x="10" y="10" width="8" height="8" rx="1" fill="currentColor"/>
+                        <rect x="37" y="5" width="18" height="18" rx="2" fill="none" stroke="currentColor" stroke-width="3"/>
+                        <rect x="42" y="10" width="8" height="8" rx="1" fill="currentColor"/>
+                        <rect x="5" y="37" width="18" height="18" rx="2" fill="none" stroke="currentColor" stroke-width="3"/>
+                        <rect x="10" y="42" width="8" height="8" rx="1" fill="currentColor"/>
+                        <circle cx="30" cy="12" r="3" fill="currentColor"/>
+                        <circle cx="30" cy="30" r="4" fill="currentColor"/>
+                        <circle cx="48" cy="32" r="3" fill="currentColor"/>
+                        <circle cx="32" cy="48" r="3" fill="currentColor"/>
+                        <circle cx="48" cy="48" r="3" fill="currentColor"/>
+                      </svg>
+                    </div>
+                    <span class="box-title-text">AuraSound Apex Pro</span>
+                    <span class="box-batch-text">BATCH: B24-8891 // SN: 772109</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Floating Relational Identity Connectors -->
+              <div class="relational-nodes-container">
+                <div class="relational-node node-manufacturer">
+                  <span class="node-tag">Origin Node</span>
+                  <span class="node-val">Oxford Precision Labs, UK</span>
+                </div>
+                <div class="relational-node node-status">
+                  <span class="node-tag">Consistency Index</span>
+                  <span class="node-val lime">100% Parameter Match</span>
+                </div>
+                <div class="relational-node node-threat">
+                  <span class="node-tag">Threat Signals</span>
+                  <span class="node-val lime">0 Duplication Flags</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Chassis Live Audit Stream -->
+            <div class="chassis-footer-log">
+              <span class="log-cursor">&gt;</span>
+              <span class="log-stream-text" id="hero-log-stream">Listening for input identifier on TruthTag global node...</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- PATTERN 4: BENTO-GRID INTELLIGENCE DASHBOARD -->
+    <section class="section bento-section" id="dashboard-section">
+      <div class="container">
+        <div class="section-title-lockup">
+          <div class="badge-cluster">
+            <span class="section-tag-mono">PATTERN 4 // MODULAR INTELLIGENCE</span>
+            <span class="demo-data-notice">Data derived dynamically from browser localStorage</span>
+          </div>
+          <h2 class="section-heading">TruthTag Intelligence Dashboard</h2>
+          <p class="section-descriptor">
+            Real-time monitoring of local demo investigations, category coverage, and anomaly detection distribution.
+          </p>
+        </div>
+
+        <!-- Varied Modular Bento Grid (12-Columns) -->
+        <div class="bento-grid">
+          <!-- Bento 1: Primary Metrics & System Vitality (Col span 4) -->
+          <div class="bento-card bento-vitality spotlight-card" data-spotlight>
+            <div class="bento-header">
+              <span class="bento-label">SYSTEM VITALITY</span>
+              <span class="bento-icon">⚡</span>
+            </div>
+            <div class="vitality-metrics-grid">
+              <div class="v-stat">
+                <span class="v-number" id="bento-total-checks">0</span>
+                <span class="v-title">Total Investigations</span>
+              </div>
+              <div class="v-stat">
+                <span class="v-number lime-text" id="bento-matched-count">0</span>
+                <span class="v-title">Record Matches</span>
+              </div>
+              <div class="v-stat">
+                <span class="v-number amber-text" id="bento-inconclusive-count">0</span>
+                <span class="v-title">Inconclusive</span>
+              </div>
+              <div class="v-stat">
+                <span class="v-number red-text" id="bento-warning-count">0</span>
+                <span class="v-title">Warnings Flagged</span>
+              </div>
+            </div>
+            <div class="vitality-footer">
+              <span class="mono-meta">Active Database Capacity: <span id="bento-ledger-capacity">6</span> Records</span>
+            </div>
+          </div>
+
+          <!-- Bento 2: Recent Investigation Stream (Col span 8) -->
+          <div class="bento-card bento-stream spotlight-card" data-spotlight>
+            <div class="bento-header">
+              <span class="bento-label">LIVE INVESTIGATION TELEMETRY</span>
+              <span class="live-ping-label"><span class="ping-dot"></span> STREAMING</span>
+            </div>
+            <div class="stream-entries-list" id="bento-stream-list">
+              <!-- Dynamically populated from JS -->
+            </div>
+          </div>
+
+          <!-- Bento 3: Category Coverage Breakdown (Col span 4) -->
+          <div class="bento-card bento-categories spotlight-card" data-spotlight>
+            <div class="bento-header">
+              <span class="bento-label">REGISTERED SECTOR DISTRIBUTION</span>
+              <span class="bento-icon">📊</span>
+            </div>
+            <div class="category-bars-list" id="bento-category-bars">
+              <!-- Dynamically populated from JS -->
+            </div>
+          </div>
+
+          <!-- Bento 4: Anomaly & Risk Breakdown Visualizer (Col span 4) -->
+          <div class="bento-card bento-radar spotlight-card" data-spotlight>
+            <div class="bento-header">
+              <span class="bento-label">ANOMALY & THREAT BREAKDOWN</span>
+              <span class="bento-icon">🛡️</span>
+            </div>
+            <div class="risk-breakdown-wrapper">
+              <div class="risk-chart-donut" id="bento-risk-chart">
+                <svg viewBox="0 0 100 100" class="donut-svg">
+                  <circle cx="50" cy="50" r="38" class="donut-track"/>
+                  <circle cx="50" cy="50" r="38" class="donut-segment segment-match" id="donut-seg-match"/>
+                  <circle cx="50" cy="50" r="38" class="donut-segment segment-warning" id="donut-seg-warning"/>
+                  <circle cx="50" cy="50" r="38" class="donut-segment segment-inconclusive" id="donut-seg-inconclusive"/>
+                </svg>
+                <div class="donut-center-info">
+                  <span class="donut-center-num" id="donut-center-rate">100%</span>
+                  <span class="donut-center-sub">INDEX</span>
+                </div>
+              </div>
+              <div class="risk-legend">
+                <div class="legend-row"><span class="dot lime"></span><span>Record Match</span></div>
+                <div class="legend-row"><span class="dot amber"></span><span>Inconclusive</span></div>
+                <div class="legend-row"><span class="dot red"></span><span>Inconsistency / Warning</span></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Bento 5: Rapid Action Matrix (Col span 4) -->
+          <div class="bento-card bento-actions spotlight-card" data-spotlight>
+            <div class="bento-header">
+              <span class="bento-label">QUICK WORKSPACE ACTIONS</span>
+              <span class="bento-icon">⚙️</span>
+            </div>
+            <div class="actions-grid-buttons">
+              <button type="button" class="bento-action-tile" id="tile-open-scanner">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"/>
+                </svg>
+                <span>Launch QR Scanner</span>
+              </button>
+              <button type="button" class="bento-action-tile" id="tile-register-product">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="12" cy="12" r="10"/>
+                  <line x1="12" y1="8" x2="12" y2="16"/>
+                  <line x1="8" y1="12" x2="16" y2="12"/>
+                </svg>
+                <span>Enroll Demo Product</span>
+              </button>
+              <button type="button" class="bento-action-tile" id="tile-export-audit">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>
+                </svg>
+                <span>Export Audit JSON</span>
+              </button>
+              <button type="button" class="bento-action-tile" id="tile-open-cmd">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="11" cy="11" r="8"/>
+                  <path d="m21 21-4.35-4.35"/>
+                </svg>
+                <span>Command Menu (⌘K)</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- CORE FEATURE: EVIDENCE-BASED PRODUCT INVESTIGATION WORKSPACE -->
+    <section class="section workspace-section" id="investigation-workspace">
+      <div class="container">
+        <div class="section-title-lockup text-center">
+          <span class="section-tag-mono">INVESTIGATION RESULTS & EVIDENCE WORKSPACE</span>
+          <h2 class="section-heading">Detailed Investigation Dossier</h2>
+          <p class="section-descriptor">
+            Examine field-by-field record matches, anomaly evidence, TruthGraph™ identity relationships, and physical authentication steps.
+          </p>
+        </div>
+
+        <!-- Investigation Loading Skeleton State -->
+        <div class="investigation-loader-card" id="investigation-loader" hidden aria-live="polite">
+          <div class="scanner-progress-bar">
+            <div class="progress-fill" id="loader-progress-fill"></div>
+          </div>
+          <div class="loader-terminal-content">
+            <div class="terminal-spinner"></div>
+            <div class="terminal-steps">
+              <span class="terminal-title" id="loader-main-message">Initializing Cryptographic Cross-Check...</span>
+              <span class="terminal-sub" id="loader-sub-message">Querying TruthTag Decentralized Brand Authority Ledger</span>
+            </div>
+            <div class="terminal-telemetry-pills">
+              <span class="pill-mini active" id="term-pill-1">HASH MATCH</span>
+              <span class="pill-mini" id="term-pill-2">BATCH AUDIT</span>
+              <span class="pill-mini" id="term-pill-3">CLONE DETECTION</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Comprehensive Investigation Dossier Container -->
+        <div class="investigation-dossier-wrapper" id="investigation-dossier" hidden>
+          <div class="dossier-card spotlight-card" id="dossier-card" data-spotlight>
+            <!-- 1. Dossier Header & Status Banner -->
+            <div class="dossier-header" id="dossier-header">
+              <!-- Dynamically populated from script.js -->
+            </div>
+
+            <!-- 2. Evidence Tabs Navigation -->
+            <div class="dossier-nav-bar">
+              <button type="button" class="dossier-tab active" data-tab="tab-evidence">
+                <span>Field Evidence Matrix</span>
+              </button>
+              <button type="button" class="dossier-tab" data-tab="tab-truthgraph">
+                <span>TruthGraph™ Identity Map</span>
+              </button>
+              <button type="button" class="dossier-tab" data-tab="tab-provenance">
+                <span>Record Provenance & Timeline</span>
+              </button>
+              <button type="button" class="dossier-tab" data-tab="tab-physical">
+                <span>Physical Authentication Guide</span>
+              </button>
+            </div>
+
+            <!-- 3. Tab Contents -->
+            <div class="dossier-tab-content active" id="tab-evidence">
+              <!-- Field-by-Field Consistency Inspector -->
+              <div class="consistency-inspector-wrapper">
+                <div class="inspector-headline-row">
+                  <div>
+                    <h3 class="inspector-title">Consistency Inspector</h3>
+                    <p class="inspector-sub">Comparing submitted user query against authorized registered ledger records.</p>
+                  </div>
+                  <span class="badge-inspector-score" id="inspector-score-badge">5/5 PARAMETERS VALIDATED</span>
+                </div>
+
+                <div class="table-responsive">
+                  <table class="inspector-table" id="inspector-table">
+                    <thead>
+                      <tr>
+                        <th>Identifier Field</th>
+                        <th>Submitted Information</th>
+                        <th>Registered Ledger Record</th>
+                        <th>Consistency Status</th>
+                        <th>Diagnostic Rationale</th>
+                      </tr>
+                    </thead>
+                    <tbody id="inspector-table-body">
+                      <!-- Dynamically populated -->
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+
+            <div class="dossier-tab-content" id="tab-truthgraph" hidden>
+              <!-- Interactive TruthGraph Product Map -->
+              <div class="truthgraph-container">
+                <div class="truthgraph-toolbar">
+                  <div>
+                    <h3 class="inspector-title">TruthGraph™ Product Identity Map</h3>
+                    <p class="inspector-sub">Interactive relational graph connecting brand authority, manufacturing plant, batch lot, and security seals.</p>
+                  </div>
+                  <span class="mono-meta">Click nodes to inspect relationship metadata</span>
+                </div>
+                
+                <div class="truthgraph-canvas-wrapper" id="truthgraph-viewport">
+                  <svg class="truthgraph-svg" id="truthgraph-svg" viewBox="0 0 800 380">
+                    <!-- Injected by script.js -->
+                  </svg>
+                </div>
+
+                <div class="truthgraph-node-details" id="truthgraph-node-details">
+                  <span class="detail-label">Active Node Inspection:</span>
+                  <span class="detail-val" id="node-inspector-text">Select any node on the graph above to view authority credentials.</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="dossier-tab-content" id="tab-provenance" hidden>
+              <!-- Provenance and Previous Checks Timeline -->
+              <div class="provenance-grid">
+                <div class="provenance-specs">
+                  <h4 class="prov-heading">Ledger Record Provenance</h4>
+                  <div class="prov-item">
+                    <span class="prov-k">Source Authority:</span>
+                    <span class="prov-v" id="prov-authority">Verified Brand Partner</span>
+                  </div>
+                  <div class="prov-item">
+                    <span class="prov-k">Registration Timestamp:</span>
+                    <span class="prov-v mono" id="prov-timestamp">Aug 14, 2025 • 09:42 UTC</span>
+                  </div>
+                  <div class="prov-item">
+                    <span class="prov-k">Cryptographic Digest:</span>
+                    <span class="prov-v mono" id="prov-digest">SHA256: 9a7f8d1c028e3b...</span>
+                  </div>
+                  <div class="prov-item">
+                    <span class="prov-k">Authorized Channels:</span>
+                    <span class="prov-v" id="prov-channels">Brand Direct, BestBuy, Sephora</span>
+                  </div>
+                </div>
+
+                <div class="previous-checks-trail">
+                  <h4 class="prov-heading">Demo Investigation Audit Trail</h4>
+                  <p class="prov-sub">Prior verification queries recorded for this product identifier within this browser session:</p>
+                  <ul class="trail-list" id="prov-audit-trail">
+                    <!-- Injected by script.js -->
+                  </ul>
+                </div>
+              </div>
+            </div>
+
+            <div class="dossier-tab-content" id="tab-physical" hidden>
+              <!-- Physical Authentication Checklist -->
+              <div class="physical-guide-container" id="physical-guide-container">
+                <!-- Dynamically populated from script.js -->
+              </div>
+            </div>
+
+            <!-- Mandatory Transparency Advisory Banner -->
+            <div class="dossier-transparency-banner">
+              <div class="banner-icon-col">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#A3E635" stroke-width="2">
+                  <path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                </svg>
+              </div>
+              <div class="banner-text-col">
+                <strong>CRITICAL TRUTHTAG INTEGRITY DISCLOSURE:</strong> A positive database match confirms that the submitted identifiers correspond to an authentic registered production batch in our ledger. <em>However, counterfeit rings often clone genuine serial numbers and QR codes onto illegitimate physical copies.</em> Never rely on digital records alone without inspecting physical tamper seals, weight, and merchant authorization.
+              </div>
+            </div>
+
+            <!-- Dossier Actions Toolbar -->
+            <div class="dossier-footer-actions">
+              <div class="actions-group-left">
+                <button type="button" class="btn btn-outline btn-sm" id="btn-print-dossier">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="6 9 6 2 18 2 18 9"/>
+                    <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
+                    <rect x="6" y="14" width="12" height="8"/>
+                  </svg>
+                  <span>Download / Print Dossier</span>
+                </button>
+                <button type="button" class="btn btn-outline btn-sm" id="btn-copy-dossier-link">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+                    <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+                  </svg>
+                  <span>Copy Report Hash</span>
+                </button>
+              </div>
+              <div class="actions-group-right">
+                <a href="#hero-search-section" class="btn btn-primary-lime btn-sm" id="btn-new-investigation">
+                  <span>New Investigation</span>
+                  <span class="btn-arrow">→</span>
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TRUTHGRAPH DEDICATED SHOWCASE SECTION -->
+    <section class="section truthgraph-spotlight-section" id="truthgraph-section">
+      <div class="container">
+        <div class="truthgraph-explainer-grid">
+          <div class="explainer-content">
+            <span class="section-tag-mono">FEATURE // TRUTHGRAPH™ RELATIONAL MAP</span>
+            <h2 class="section-heading">Connect the dots from factory floor to retail counter.</h2>
+            <p class="section-descriptor">
+              Counterfeits fail when inspected as a relational graph. TruthGraph™ models the intricate web of brand authorities, accredited production plants, allocated batch sequences, and tamper-evident packaging profiles.
+            </p>
+            <div class="graph-feature-list">
+              <div class="g-feature-item">
+                <span class="g-icon">1</span>
+                <div>
+                  <strong>Cryptographic Parentage</strong>
+                  <p>Every serial number belongs to a strictly bounded batch sequence signed by an authorized facility.</p>
+                </div>
+              </div>
+              <div class="g-feature-item">
+                <span class="g-icon">2</span>
+                <div>
+                  <strong>Clone Detection Geometry</strong>
+                  <p>When counterfeiters print one real serial across thousands of jackets or serum bottles, duplicate collision geometry lights up immediately.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="explainer-preview-card spotlight-card" data-spotlight>
+            <div class="interactive-graph-preview" id="global-truthgraph-demo">
+              <!-- Live interactive mini-graph -->
+            </div>
+            <div class="preview-caption">
+              <span>Interactive TruthGraph Demo Node: Click any node above to verify entity status.</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- PRODUCT RECORD EXPLORER & CATEGORIES -->
+    <section class="section catalog-section" id="database-section">
+      <div class="container">
+        <div class="section-title-lockup">
+          <div class="badge-cluster">
+            <span class="section-tag-mono">INTELLIGENCE LEDGER // RECORD EXPLORER</span>
+            <span class="demo-data-notice">Sample fictional baselines for testing workflows</span>
+          </div>
+          <h2 class="section-heading">Explore Registered Product Catalog</h2>
+          <p class="section-descriptor">
+            Filter through authentic registered baselines and known flagged counterfeit alerts. Click any record to auto-populate and run an immediate investigation.
+          </p>
+        </div>
+
+        <!-- Filter Bar -->
+        <div class="catalog-controls-bar">
+          <div class="category-pill-group" id="category-filter-group">
+            <button type="button" class="cat-pill active" data-category="all">All Sectors</button>
+            <button type="button" class="cat-pill" data-category="Electronics">Electronics</button>
+            <button type="button" class="cat-pill" data-category="Skincare">Skincare</button>
+            <button type="button" class="cat-pill" data-category="Footwear">Footwear</button>
+            <button type="button" class="cat-pill" data-category="Apparel">Apparel</button>
+            <button type="button" class="cat-pill" data-category="Luxury">Luxury & Horology</button>
+            <button type="button" class="cat-pill" data-category="custom">User Registered</button>
+          </div>
+
+          <div class="catalog-search-field">
+            <input type="text" id="catalog-search-input" placeholder="Search by SKU, Brand, or Model..." class="catalog-input">
+          </div>
+        </div>
+
+        <!-- Catalog Grid -->
+        <div class="catalog-cards-grid" id="catalog-cards-grid">
+          <!-- Dynamically populated from script.js -->
+        </div>
+
+        <div class="catalog-empty-state" id="catalog-empty-state" hidden>
+          <div class="empty-icon-shield">🔍</div>
+          <h3>No matching records found in ledger</h3>
+          <p>Try broadening your query or register a new sample record using the Studio below.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- PATTERN 5: SCROLL-TRIGGERED STORYTELLING & INVESTIGATION TIMELINE -->
+    <section class="section protocol-section" id="timeline-section">
+      <div class="container">
+        <div class="section-title-lockup text-center">
+          <span class="section-tag-mono">PATTERN 5 // FROM SCAN TO TRUST REPORT</span>
+          <h2 class="section-heading">The 5-Phase TruthTag Investigation Protocol</h2>
+          <p class="section-descriptor">
+            How TruthTag ingests raw packaging identifiers and converts them into structured evidence.
+          </p>
+        </div>
+
+        <div class="interactive-protocol-timeline" id="protocol-timeline">
+          <!-- Step 1 -->
+          <div class="timeline-step-card spotlight-card active" data-step="1" data-spotlight>
+            <div class="step-num-pill">PHASE 01</div>
+            <h3 class="step-title">Identifier Ingestion</h3>
+            <p class="step-desc">The user submits a Product ID, lot number, serial number, or scans an optical QR code from retail packaging.</p>
+            <div class="step-telemetry-box">
+              <code>INGEST: SKU / LOT / SERIAL / OCR_MATRIX</code>
+            </div>
+          </div>
+
+          <!-- Step 2 -->
+          <div class="timeline-step-card spotlight-card" data-step="2" data-spotlight>
+            <div class="step-num-pill">PHASE 02</div>
+            <h3 class="step-title">Ledger Query & Hashing</h3>
+            <p class="step-desc">The identifier is normalized, cryptographically hashed, and cross-referenced against brand authority ledgers.</p>
+            <div class="step-telemetry-box">
+              <code>QUERY: SHA256(IDENTIFIER) ↔ BRAND_REGISTRY</code>
+            </div>
+          </div>
+
+          <!-- Step 3 -->
+          <div class="timeline-step-card spotlight-card" data-step="3" data-spotlight>
+            <div class="step-num-pill">PHASE 03</div>
+            <h3 class="step-title">Consistency Inspector</h3>
+            <p class="step-desc">Every submitted attribute is audited field-by-field to identify matching, missing, or conflicting manufacturing allocations.</p>
+            <div class="step-telemetry-box">
+              <code>INSPECT: ATTRIBUTE_MATRIX ↔ FACTORY_ALLOCATION</code>
+            </div>
+          </div>
+
+          <!-- Step 4 -->
+          <div class="timeline-step-card spotlight-card" data-step="4" data-spotlight>
+            <div class="step-num-pill">PHASE 04</div>
+            <h3 class="step-title">Threat Signal Synthesis</h3>
+            <p class="step-desc">Checks for duplicate serial scan spikes across disconnected regions and evaluates customs seizure bulletin notices.</p>
+            <div class="step-telemetry-box">
+              <code>SYNTHESIZE: COLLISION_INDEX &amp; COUNTERFEIT_ALERTS</code>
+            </div>
+          </div>
+
+          <!-- Step 5 -->
+          <div class="timeline-step-card spotlight-card" data-step="5" data-spotlight>
+            <div class="step-num-pill">PHASE 05</div>
+            <h3 class="step-title">Evidence-Based Report</h3>
+            <p class="step-desc">Generates an unvarnished investigation dossier with clear status and physical packaging authentication instructions.</p>
+            <div class="step-telemetry-box">
+              <code>OUTPUT: DOSSIER(STATUS, REASONS, PHYSICAL_CHECKLIST)</code>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- PRODUCT REGISTRATION STUDIO (MULTI-STEP WIZARD) -->
+    <section class="section registration-section" id="registration-section">
+      <div class="container">
+        <div class="registration-studio-card spotlight-card" data-spotlight>
+          <div class="studio-header">
+            <div>
+              <span class="section-tag-mono">BRAND PARTNER WORKSPACE // DEMO ENROLLMENT</span>
+              <h2 class="studio-title">Product Registration Studio</h2>
+              <p class="studio-sub">
+                Enroll sample products, specify batch intervals, and define authentic packaging security profiles directly into local memory.
+              </p>
+            </div>
+            <div class="wizard-step-indicator">
+              <span class="step-badge active" id="wiz-step-pill-1">1. Product Info</span>
+              <span class="step-badge" id="wiz-step-pill-2">2. Identifiers</span>
+              <span class="step-badge" id="wiz-step-pill-3">3. Security</span>
+              <span class="step-badge" id="wiz-step-pill-4">4. Confirm</span>
+            </div>
+          </div>
+
+          <form id="studio-registration-form" class="studio-form" novalidate>
+            <!-- Step 1: Basic Product Information -->
+            <div class="wizard-pane active" id="wizard-pane-1">
+              <h3 class="pane-title">Step 1: Product & Brand Entity</h3>
+              <div class="form-row-2">
+                <div class="form-group">
+                  <label for="reg-name" class="form-label required">Product Commercial Name</label>
+                  <input type="text" id="reg-name" class="form-input" placeholder="e.g. Lumina SoundBar Elite" required>
+                  <span class="field-error" id="err-reg-name"></span>
+                </div>
+                <div class="form-group">
+                  <label for="reg-brand" class="form-label required">Brand / Manufacturer Authority</label>
+                  <input type="text" id="reg-brand" class="form-input" placeholder="e.g. Lumina Audio Works" required>
+                  <span class="field-error" id="err-reg-brand"></span>
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label for="reg-category" class="form-label required">Industry Sector</label>
+                <select id="reg-category" class="form-select" required>
+                  <option value="" disabled selected>Select Category</option>
+                  <option value="Electronics">Electronics & Hardware</option>
+                  <option value="Skincare">Skincare & Cosmetics</option>
+                  <option value="Footwear">Footwear & Athletics</option>
+                  <option value="Apparel">Apparel & Outerwear</option>
+                  <option value="Luxury">Luxury & Horology</option>
+                  <option value="Pharmaceuticals">Pharmaceuticals</option>
+                </select>
+                <span class="field-error" id="err-reg-category"></span>
+              </div>
+
+              <div class="wizard-nav-row">
+                <span></span>
+                <button type="button" class="btn btn-primary-lime btn-sm" id="wiz-next-1">Next: Identifiers →</button>
+              </div>
+            </div>
+
+            <!-- Step 2: Identifiers & Batch Info -->
+            <div class="wizard-pane" id="wizard-pane-2" hidden>
+              <h3 class="pane-title">Step 2: Cryptographic Identifiers</h3>
+              <div class="form-row-3">
+                <div class="form-group">
+                  <label for="reg-sku" class="form-label required">Model SKU / Product ID</label>
+                  <input type="text" id="reg-sku" class="form-input mono" placeholder="e.g. LUM-770" required>
+                  <span class="field-error" id="err-reg-sku"></span>
+                </div>
+                <div class="form-group">
+                  <label for="reg-batch" class="form-label required">Batch / Lot Number</label>
+                  <input type="text" id="reg-batch" class="form-input mono" placeholder="e.g. B-2026-X1" required>
+                  <span class="field-error" id="err-reg-batch"></span>
+                </div>
+                <div class="form-group">
+                  <label for="reg-serial" class="form-label required">Unique Unit Serial Number</label>
+                  <input type="text" id="reg-serial" class="form-input mono" placeholder="e.g. SN-994102" required>
+                  <span class="field-error" id="err-reg-serial"></span>
+                </div>
+              </div>
+
+              <div class="wizard-nav-row">
+                <button type="button" class="btn btn-outline btn-sm" id="wiz-prev-2">← Back</button>
+                <button type="button" class="btn btn-primary-lime btn-sm" id="wiz-next-2">Next: Provenance & Seals →</button>
+              </div>
+            </div>
+
+            <!-- Step 3: Security & Provenance Profiles -->
+            <div class="wizard-pane" id="wizard-pane-3" hidden>
+              <h3 class="pane-title">Step 3: Provenance & Packaging Security Profiles</h3>
+              <div class="form-row-2">
+                <div class="form-group">
+                  <label for="reg-facility" class="form-label required">Manufacturing Facility & Location</label>
+                  <input type="text" id="reg-facility" class="form-input" placeholder="e.g. Lumina Precision Labs, Munich, Germany" required>
+                  <span class="field-error" id="err-reg-facility"></span>
+                </div>
+                <div class="form-group">
+                  <label for="reg-security-type" class="form-label">Packaging Security Feature</label>
+                  <select id="reg-security-type" class="form-select">
+                    <option value="Holographic Void Seal">Holographic Void Seal</option>
+                    <option value="Tamper-Evident Breakaway Foil">Tamper-Evident Breakaway Foil</option>
+                    <option value="Micro-Engraved QR Matrix">Micro-Engraved QR Matrix</option>
+                    <option value="Encrypted NFC Chip">Encrypted NFC Chip</option>
+                    <option value="Laser-Etched Serial Ribbon">Laser-Etched Serial Ribbon</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label for="reg-channels" class="form-label">Authorized Retail Channels</label>
+                <input type="text" id="reg-channels" class="form-input" placeholder="e.g. Official Flagship, BestBuy, Currys UK">
+              </div>
+
+              <div class="form-group">
+                <label for="reg-packaging-notes" class="form-label">Physical Inspection Notes</label>
+                <textarea id="reg-packaging-notes" class="form-textarea" rows="2" placeholder="e.g. Look for rainbow holographic sheen and embossed serial code on inner label."></textarea>
+              </div>
+
+              <div class="wizard-nav-row">
+                <button type="button" class="btn btn-outline btn-sm" id="wiz-prev-3">← Back</button>
+                <button type="button" class="btn btn-primary-lime btn-sm" id="wiz-next-3">Review & Enroll →</button>
+              </div>
+            </div>
+
+            <!-- Step 4: Review & Enroll Confirmation -->
+            <div class="wizard-pane" id="wizard-pane-4" hidden>
+              <h3 class="pane-title">Step 4: Cryptographic Ledger Enrollment</h3>
+              <div class="studio-review-summary" id="studio-review-summary">
+                <!-- Dynamically filled with review details -->
+              </div>
+
+              <div class="notice-callout">
+                <strong>Simulated Enrollment Notice:</strong> This product record will be cryptographically enrolled in your browser's local demo database. It will immediately be verifiable via the search engine, QR scanner, and TruthGraph.
+              </div>
+
+              <div class="wizard-nav-row">
+                <button type="button" class="btn btn-outline btn-sm" id="wiz-prev-4">← Back to Edit</button>
+                <button type="submit" class="btn btn-primary-lime" id="studio-final-submit">Enroll into TruthTag Ledger ✓</button>
+              </div>
+            </div>
+          </form>
+        </div>
+      </div>
+    </section>
+
+    <!-- VERIFICATION AUDIT TRAIL / HISTORY -->
+    <section class="section history-section" id="history-section">
+      <div class="container">
+        <div class="section-title-lockup">
+          <div class="header-split-row">
+            <div>
+              <span class="section-tag-mono">LOCAL INVESTIGATION HISTORY</span>
+              <h2 class="section-heading">Local Audit History</h2>
+              <p class="section-descriptor">
+                All product queries and risk analyses performed in this browser environment.
+              </p>
+            </div>
+            <div class="history-actions-row">
+              <button type="button" class="btn btn-outline btn-sm" id="hist-export-btn">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>
+                </svg>
+                <span>Export JSON</span>
+              </button>
+              <button type="button" class="btn btn-outline btn-sm danger-text" id="hist-clear-btn">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="3 6 5 6 21 6"/>
+                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                </svg>
+                <span>Clear History</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- History Filter Bar -->
+        <div class="history-controls-bar">
+          <div class="history-filter-pills" id="history-filter-pills">
+            <button type="button" class="h-pill active" data-hstatus="all">All Logs (<span id="h-count-all">0</span>)</button>
+            <button type="button" class="h-pill" data-hstatus="verified">Matches (<span id="h-count-match">0</span>)</button>
+            <button type="button" class="h-pill" data-hstatus="inconclusive">Inconclusive (<span id="h-count-inconclusive">0</span>)</button>
+            <button type="button" class="h-pill" data-hstatus="warning">Warnings (<span id="h-count-warning">0</span>)</button>
+          </div>
+          <div class="history-search-wrapper">
+            <input type="text" id="history-search-field" placeholder="Search investigation logs..." class="history-input">
+          </div>
+        </div>
+
+        <!-- History Table / Cards -->
+        <div class="history-records-card spotlight-card" data-spotlight>
+          <div class="history-empty-view" id="history-empty-view">
+            <div class="empty-icon-shield">📋</div>
+            <h3>No investigation history yet</h3>
+            <p>Enter any product code or click one of our quick sample chips above to build your local audit trail.</p>
+          </div>
+          <div class="history-items-list" id="history-items-list" hidden>
+            <!-- Injected by script.js -->
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SAFETY & RESPONSIBLE TRANSPARENCY ADVISORY -->
+    <section class="section integrity-section" id="safety-section">
+      <div class="container">
+        <div class="integrity-card spotlight-card" data-spotlight>
+          <div class="integrity-banner">
+            <span class="banner-tag">TRUTHTAG TRANSPARENCY CHARTER</span>
+            <h2 class="integrity-title">Understanding Digital Verification Limitations</h2>
+            <p class="integrity-sub">
+              Why an authentic database entry can never replace physical packaging forensics.
+            </p>
+          </div>
+
+          <div class="integrity-body-grid">
+            <div class="integrity-col">
+              <h3 class="col-head">The Reality of Serial &amp; QR Cloning</h3>
+              <p>
+                Counterfeiting operations routinely purchase one legitimate retail product, photograph its genuine QR matrix and serial number, and print identical duplicates onto 10,000 counterfeit packages.
+              </p>
+              <p>
+                Therefore, <strong>a positive database match simply confirms that the identifier was legitimately registered by the brand</strong>. It does not prove that the specific box in your possession is the original factory product.
+              </p>
+              <div class="quote-callout">
+                "TruthTag guarantees transparent record inspection—not magical certainty. The best defense is combining ledger verification with physical inspection."
+              </div>
+            </div>
+
+            <div class="integrity-col">
+              <h3 class="col-head">The 4-Point Physical Inspection Guide</h3>
+              <ul class="integrity-steps-list">
+                <li>
+                  <span class="step-check">✓</span>
+                  <div>
+                    <strong>Examine Tamper Seals:</strong>
+                    <span>Check for genuine holographic void labels that leave honeycomb residues when peeled.</span>
+                  </div>
+                </li>
+                <li>
+                  <span class="step-check">✓</span>
+                  <div>
+                    <strong>Check Micro-Typography:</strong>
+                    <span>Fake packaging often displays blurred micro-print, misaligned margins, or uneven ink saturation.</span>
+                  </div>
+                </li>
+                <li>
+                  <span class="step-check">✓</span>
+                  <div>
+                    <strong>Audit the Retail Chain:</strong>
+                    <span>Was this purchased from an authorized brand retailer or an unauthorized third-party vendor at a 75% discount?</span>
+                  </div>
+                </li>
+                <li>
+                  <span class="step-check">✓</span>
+                  <div>
+                    <strong>What to do if Inconclusive:</strong>
+                    <span>Contact the brand's support desk with your serial number before using or consuming the product.</span>
+                  </div>
+                </li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- FAQS SECTION -->
+    <section class="section faq-section" id="faq-section">
+      <div class="container">
+        <div class="section-title-lockup text-center">
+          <span class="section-tag-mono">KNOWLEDGE ARCHIVE // FREQUENTLY ASKED QUESTIONS</span>
+          <h2 class="section-heading">Frequently Asked Questions</h2>
+          <p class="section-descriptor">
+            Clear, honest answers about product provenance, barcode security, and threat models.
+          </p>
+        </div>
+
+        <div class="faq-accordion" id="faq-accordion">
+          <!-- Item 1 -->
+          <div class="faq-item">
+            <button class="faq-trigger" aria-expanded="false">
+              <span>Why can't a QR code or barcode alone guarantee that a product is authentic?</span>
+              <span class="faq-icon">+</span>
+            </button>
+            <div class="faq-drawer" hidden>
+              <p>Barcodes and QR codes are just open strings of text converted into black-and-white graphics. Anyone with an office printer can scan a real shoe box or perfume bottle and replicate that barcode on thousands of fake cartons. Digital matching verifies that the code is valid in the ledger, but physical security features are essential to confirm the box is real.</p>
+            </div>
+          </div>
+
+          <!-- Item 2 -->
+          <div class="faq-item">
+            <button class="faq-trigger" aria-expanded="false">
+              <span>What should I do if TruthTag returns "Verification Inconclusive"?</span>
+              <span class="faq-icon">+</span>
+            </button>
+            <div class="faq-drawer" hidden>
+              <p>Inconclusive means the code was not found in the current ledger. This happens when: (1) there is a typo in the serial number, (2) the brand has not enrolled this regional batch, or (3) the item is an unauthorized duplicate. We recommend verifying the code with the retailer or manufacturer customer service before using the product.</p>
+            </div>
+          </div>
+
+          <!-- Item 3 -->
+          <div class="faq-item">
+            <button class="faq-trigger" aria-expanded="false">
+              <span>What triggers a "Potential Inconsistency" or Warning status?</span>
+              <span class="faq-icon">+</span>
+            </button>
+            <div class="faq-drawer" hidden>
+              <p>A warning triggers when our anomaly engine detects known red flags: recalled manufacturing lots, batches with reported safety defects, or batch codes officially flagged by brand partners and law enforcement as widely cloned by counterfeit rings.</p>
+            </div>
+          </div>
+
+          <!-- Item 4 -->
+          <div class="faq-item">
+            <button class="faq-trigger" aria-expanded="false">
+              <span>How does TruthGraph™ reveal supply-chain discrepancies?</span>
+              <span class="faq-icon">+</span>
+            </button>
+            <div class="faq-drawer" hidden>
+              <p>TruthGraph maps the cryptographic relationships between the brand, production facility, batch sequence, and security features. If a submitted serial number does not mathematically fit into the manufacturing facility's registered batch range, the graph highlights the broken link.</p>
+            </div>
+          </div>
+
+          <!-- Item 5 -->
+          <div class="faq-item">
+            <button class="faq-trigger" aria-expanded="false">
+              <span>Is my search history uploaded to any public tracking server?</span>
+              <span class="faq-icon">+</span>
+            </button>
+            <div class="faq-drawer" hidden>
+              <p>No. In this version, all verification history and custom-registered demo records are saved purely within your browser's private localStorage. No identifiers or personal data are collected or sold.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- CONTACT & COUNTERFEIT INCIDENT REPORT -->
+    <section class="section contact-section" id="contact-section">
+      <div class="container">
+        <div class="contact-dossier-card spotlight-card" data-spotlight>
+          <div class="contact-header">
+            <span class="section-tag-mono">INCIDENT REPORTING & INQUIRIES</span>
+            <h2 class="contact-title">Report a Suspected Counterfeit or Partner with TruthTag</h2>
+            <p class="contact-sub">
+              Have evidence of a cloned serial number or want to enroll your brand's manufacturing ledger? Send our intelligence desk a message.
+            </p>
+          </div>
+
+          <form id="contact-form" class="contact-form" novalidate>
+            <div class="form-row-2">
+              <div class="form-group">
+                <label for="c-name" class="form-label required">Reporter Name</label>
+                <input type="text" id="c-name" class="form-input" placeholder="e.g. Elena Rostova" required>
+                <span class="field-error" id="err-c-name"></span>
+              </div>
+              <div class="form-group">
+                <label for="c-email" class="form-label required">Official Email Address</label>
+                <input type="email" id="c-email" class="form-input" placeholder="e.g. elena@company.com" required>
+                <span class="field-error" id="err-c-email"></span>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="c-type" class="form-label">Inquiry Intent</label>
+              <select id="c-type" class="form-select">
+                <option value="report">Report a Counterfeit / Cloned Serial Batch</option>
+                <option value="brand">Brand Manufacturer Ledger Enrollment</option>
+                <option value="audit">Request Formal Verification Consultation</option>
+                <option value="technical">Developer API & Webhook Inquiries</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="c-message" class="form-label required">Incident Details / Message</label>
+              <textarea id="c-message" class="form-textarea" rows="4" placeholder="Detail any serial numbers, packaging discrepancies, or purchase locations..." required></textarea>
+              <span class="field-error" id="err-c-message"></span>
+            </div>
+
+            <button type="submit" class="btn btn-primary-lime btn-block" id="c-submit-btn">
+              <span>Submit Incident Dossier</span>
+              <span class="btn-arrow">→</span>
+            </button>
+          </form>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- FOOTER -->
+  <footer class="site-footer">
+    <div class="container footer-container">
+      <div class="footer-grid">
+        <div class="footer-brand-col">
+          <div class="footer-logo">
+            <span class="logo-mark">🛡️</span>
+            <span class="logo-txt">Truth<span class="lime-text">Tag</span> Intelligence</span>
+          </div>
+          <p class="footer-summary">
+            Investigative product authenticity, batch provenance indexing, and anti-counterfeiting intelligence. Empowering consumers and brand authorities worldwide.
+          </p>
+          <div class="footer-telemetry-badge">
+            <span class="pulse-lime"></span>
+            <span class="mono">NODE LEDGER: 99.98% OPERATIONAL</span>
+          </div>
+        </div>
+
+        <div class="footer-links-col">
+          <h4 class="col-title">Intelligence Tools</h4>
+          <ul>
+            <li><a href="#hero-search-section">Direct Verification</a></li>
+            <li><a href="#dashboard-section">Intelligence Bento</a></li>
+            <li><a href="#truthgraph-section">TruthGraph™ Map</a></li>
+            <li><a href="#database-section">Catalog Explorer</a></li>
+            <li><a href="#registration-section">Product Registration Studio</a></li>
+          </ul>
+        </div>
+
+        <div class="footer-links-col">
+          <h4 class="col-title">Provenance Charter</h4>
+          <ul>
+            <li><a href="#timeline-section">5-Phase Protocol</a></li>
+            <li><a href="#safety-section">Integrity & Limits</a></li>
+            <li><a href="#history-section">Local Audit Trail</a></li>
+            <li><a href="#faq-section">Frequently Asked Questions</a></li>
+          </ul>
+        </div>
+
+        <div class="footer-links-col">
+          <h4 class="col-title">Legal & Security</h4>
+          <p class="footer-legal-snippet">
+            TruthTag operates as an evidence-based product intelligence platform. Verification results reflect registered ledger states and do not certify physical authenticity alone.
+          </p>
+          <div class="badge-mini-row">
+            <span class="badge-subtle">Client-Side Storage</span>
+            <span class="badge-subtle">Zero Ad Tracking</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="footer-bottom-bar">
+        <p class="copyright-text">
+          &copy; <span id="current-year">2026</span> TruthTag Technologies. All rights reserved. Built for hackathon demonstration &amp; portfolio showcase.
+        </p>
+        <div class="footer-bottom-links">
+          <button type="button" class="footer-btn-link" id="trigger-privacy-modal">Privacy Notice</button>
+          <span class="sep">•</span>
+          <button type="button" class="footer-btn-link" id="trigger-terms-modal">Terms of Ledger</button>
+          <span class="sep">•</span>
+          <a href="#safety-section" class="footer-btn-link">Disclaimers</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <!-- PATTERN 3: GLOBAL COMMAND PALETTE (CMD+K / CTRL+K) -->
+  <div class="cmd-palette-backdrop" id="cmd-palette" hidden>
+    <div class="cmd-palette-window" role="dialog" aria-modal="true" aria-labelledby="cmd-search-input">
+      <div class="cmd-input-row">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#A3E635" stroke-width="2">
+          <circle cx="11" cy="11" r="8"/>
+          <path d="m21 21-4.35-4.35"/>
+        </svg>
+        <input 
+          type="text" 
+          id="cmd-search-input" 
+          class="cmd-search-field" 
+          placeholder="Type an action, command, or product code (e.g. verify, scanner, AUD-9921-X)..."
+          autocomplete="off"
+        >
+        <button type="button" class="cmd-close-btn" id="cmd-close-btn" aria-label="Close command palette">ESC</button>
+      </div>
+
+      <div class="cmd-results-container" id="cmd-results-list">
+        <!-- Dynamically rendered commands & search results -->
+      </div>
+
+      <div class="cmd-footer-bar">
+        <div class="cmd-hints">
+          <span><kbd class="cmd-kbd">↑</kbd><kbd class="cmd-kbd">↓</kbd> to navigate</span>
+          <span><kbd class="cmd-kbd">↵</kbd> to select</span>
+          <span><kbd class="cmd-kbd">ESC</kbd> to exit</span>
+        </div>
+        <span class="cmd-brand-tag">TruthTag Command Engine</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- QR SCANNER MODAL VIEWPORT -->
+  <div class="modal-backdrop" id="scanner-modal" hidden>
+    <div class="modal-chassis scanner-modal-chassis">
+      <div class="modal-header-bar">
+        <div class="modal-header-left">
+          <span class="mono-badge">OPTICAL HARDWARE INTERFACE</span>
+          <h3 class="modal-title">Live QR &amp; Barcode Scanner</h3>
+        </div>
+        <button type="button" class="modal-dismiss-btn" id="scanner-modal-close" aria-label="Close scanner">&times;</button>
+      </div>
+
+      <div class="modal-body-content">
+        <div class="scanner-camera-viewport" id="modal-scanner-viewport">
+          <div class="scanner-laser-line"></div>
+          <div class="scanner-reticle reticle-tl"></div>
+          <div class="scanner-reticle reticle-tr"></div>
+          <div class="scanner-reticle reticle-bl"></div>
+          <div class="scanner-reticle reticle-br"></div>
+
+          <div class="scanner-idle-placeholder" id="modal-scanner-idle">
+            <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="#A3E635" stroke-width="1.8">
+              <path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"/>
+              <rect x="7" y="7" width="10" height="10" rx="1"/>
+            </svg>
+            <p>Align product QR code or packaging barcode within frame</p>
+            <span class="mono-meta">Active Optical Sensor Ready</span>
+          </div>
+
+          <video id="modal-webcam-video" playsinline style="display:none;"></video>
+        </div>
+
+        <div class="scanner-modal-controls">
+          <div class="scanner-presets-heading">Or simulate scanning an optical tag:</div>
+          <div class="scanner-preset-grid">
+            <button type="button" class="scanner-preset-btn" data-scan-val="AUD-9921-X">
+              <span class="dot lime"></span>
+              <span>AuraSound Headphones QR (Verified)</span>
+            </button>
+            <button type="button" class="scanner-preset-btn" data-scan-val="VTL-402">
+              <span class="dot lime"></span>
+              <span>Vitalis Facial Serum QR (Verified)</span>
+            </button>
+            <button type="button" class="scanner-preset-btn" data-scan-val="NS-8800">
+              <span class="dot red"></span>
+              <span>NordicShield Parka QR (Flagged Anomaly)</span>
+            </button>
+            <button type="button" class="scanner-preset-btn" data-scan-val="UNKNOWN-BARCODE-9941">
+              <span class="dot amber"></span>
+              <span>Generic Unregistered Barcode</span>
+            </button>
+          </div>
+
+          <div class="scanner-hardware-actions">
+            <button type="button" class="btn btn-outline btn-sm" id="modal-camera-toggle-btn">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+                <circle cx="12" cy="13" r="4"/>
+              </svg>
+              <span>Use Real Camera</span>
+            </button>
+
+            <label class="btn btn-outline btn-sm file-trigger-label" for="modal-qr-file">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/>
+              </svg>
+              <span>Upload Tag Image</span>
+              <input type="file" id="modal-qr-file" accept="image/*" class="sr-only">
+            </label>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PRIVACY NOTICE MODAL -->
+  <div class="modal-backdrop" id="privacy-modal" hidden>
+    <div class="modal-chassis">
+      <div class="modal-header-bar">
+        <h3 class="modal-title">TruthTag Privacy &amp; Verification Charter</h3>
+        <button type="button" class="modal-dismiss-btn" id="privacy-modal-close">&times;</button>
+      </div>
+      <div class="modal-body-content modal-text-body">
+        <h4>1. Client-Side Data Isolation</h4>
+        <p>TruthTag operates entirely within your browser runtime. All verification history entries, registered sample products, and telemetry calculations are stored securely in browser <code>localStorage</code>. No search queries or IP addresses are uploaded to external tracking servers.</p>
+
+        <h4>2. Verification Scope & Limitations</h4>
+        <p>A positive record match indicates that the submitted identifiers (SKU, Lot, Serial Number) correspond to an authentic registered production batch in our ledger. It does not certify that a physical tag has not been duplicated onto a counterfeit item.</p>
+
+        <h4>3. Fictional Demo Sandbox</h4>
+        <p>All brand entities (AuraSound, Vitalis Laboratories, AeroStride, NordicShield, OmniPower, Chronos Horology) are fictional representations designed exclusively to demonstrate authentic vs. warning vs. inconclusive workflows.</p>
+      </div>
+      <div class="modal-footer-bar">
+        <button type="button" class="btn btn-primary-lime btn-sm" id="privacy-modal-ack">Understood</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- TOAST NOTIFICATION CONTAINER -->
+  <div class="toast-hub" id="toast-hub" aria-live="polite"></div>
+
+  <!-- Main JavaScript Application Engine -->
+  <script src="script.js"></script>
+</body>
+</html>
