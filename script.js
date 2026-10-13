@@ -148,6 +148,7 @@ function mapApiVerification(data) {
   return {
     id: data.scan_id,
     auditId: data.scan_id,
+    dbProductId: data.product_id || null,
     timestamp: new Date(data.scanned_at).toLocaleString(),
     status: data.outcome,
     statusTitle: data.outcome_title,
@@ -381,6 +382,12 @@ class TruthTagApp {
     this.catalogFilter = 'all';
     this.catalogSearch = '';
     this.webcamStream = null;
+    this.scanAnimationId = null;
+    this.barcodeDetector = ('BarcodeDetector' in window) ? new BarcodeDetector({ formats: ['qr_code', 'code_128', 'ean_13', 'ean_8', 'upc_a', 'upc_e'] }) : null;
+    this.authToken = localStorage.getItem('truthtag_auth_token') || null;
+    this.currentUser = JSON.parse(localStorage.getItem('truthtag_user') || 'null');
+    this.activeReviewIncidentId = null;
+    this.authMode = 'login';
     this.activeWizardStep = 1;
     this.wizardData = {};
     this.verificationController = null;
@@ -388,6 +395,7 @@ class TruthTagApp {
     this.previousFocusTarget = null;
 
     this.cacheDOMElements();
+    this.initAuth();
     this.initSpotlight();
     this.initCommandPalette();
     this.bindEvents();
@@ -505,15 +513,86 @@ class TruthTagApp {
     this.hCountInconclusive = document.getElementById('h-count-inconclusive');
     this.hCountWarning = document.getElementById('h-count-warning');
 
-    // Scanner Modal
+    // Scanner Modal & Hardware
     this.scannerModal = document.getElementById('scanner-modal');
     this.scannerModalClose = document.getElementById('scanner-modal-close');
     this.modalWebcamVideo = document.getElementById('modal-webcam-video');
+    this.modalQrCanvas = document.getElementById('modal-qr-canvas');
     this.modalScannerIdle = document.getElementById('modal-scanner-idle');
     this.modalCameraToggleBtn = document.getElementById('modal-camera-toggle-btn');
     this.modalQrFile = document.getElementById('modal-qr-file');
     this.scannerFeedback = document.getElementById('scanner-feedback');
     this.scannerPresetBtns = document.querySelectorAll('.scanner-preset-btn');
+
+    // Header Auth & User Controls
+    this.headerLoginBtn = document.getElementById('header-login-btn');
+    this.headerUserPill = document.getElementById('header-user-pill');
+    this.headerUserAvatar = document.getElementById('header-user-avatar');
+    this.headerUserName = document.getElementById('header-user-name');
+    this.headerUserRole = document.getElementById('header-user-role');
+    this.headerUserMenu = document.getElementById('header-user-menu');
+    this.menuUserName = document.getElementById('menu-user-name');
+    this.menuUserEmail = document.getElementById('menu-user-email');
+    this.menuWorkspaceBtn = document.getElementById('menu-workspace-btn');
+    this.menuAdminBtn = document.getElementById('menu-admin-btn');
+    this.menuLogoutBtn = document.getElementById('menu-logout-btn');
+
+    // Authentication Modal
+    this.authModal = document.getElementById('auth-modal');
+    this.tabLoginBtn = document.getElementById('tab-login-btn');
+    this.tabRegisterBtn = document.getElementById('tab-register-btn');
+    this.authModalTitle = document.getElementById('auth-modal-title');
+    this.authModalSubtitle = document.getElementById('auth-modal-subtitle');
+    this.authForm = document.getElementById('auth-form');
+    this.authUsernameGroup = document.getElementById('auth-username-group');
+    this.authUsernameInput = document.getElementById('auth-username-input');
+    this.authEmailInput = document.getElementById('auth-email-input');
+    this.authPasswordInput = document.getElementById('auth-password-input');
+    this.authSubmitBtn = document.getElementById('auth-submit-btn');
+    this.authCancelBtn = document.getElementById('auth-cancel-btn');
+    this.demoAuthAdmin = document.getElementById('demo-auth-admin');
+    this.demoAuthBrand = document.getElementById('demo-auth-brand');
+    this.demoAuthUser = document.getElementById('demo-auth-user');
+
+    // Multi-Retailer Pricing & Price Watchlist
+    this.pricingTableBody = document.getElementById('pricing-table-body');
+    this.pricingMsrp = document.getElementById('pricing-msrp');
+    this.pricingLowest = document.getElementById('pricing-lowest');
+    this.pricingDealBadge = document.getElementById('pricing-deal-badge');
+    this.pricingDealDesc = document.getElementById('pricing-deal-desc');
+    this.btnAddWatchlist = document.getElementById('btn-add-watchlist');
+    this.pricingWatchlistMsg = document.getElementById('pricing-watchlist-msg');
+    this.btnGenerateTrustReport = document.getElementById('btn-generate-trust-report');
+
+    // Cryptographic Trust Report Modal
+    this.trustReportModal = document.getElementById('trust-report-modal');
+    this.trustReportClose = document.getElementById('trust-report-close');
+    this.trustReportBody = document.getElementById('trust-report-body');
+
+    // Admin Operational Triage Console
+    this.adminConsoleModal = document.getElementById('admin-console-modal');
+    this.adminConsoleClose = document.getElementById('admin-console-close');
+    this.adminConsoleRoleTag = document.getElementById('admin-console-role-tag');
+    this.adminTabs = document.querySelectorAll('.admin-nav-tab');
+    this.adminSearchInput = document.getElementById('admin-search-input');
+    this.adminStatusFilter = document.getElementById('admin-status-filter');
+    this.adminRefreshBtn = document.getElementById('admin-refresh-btn');
+    this.adminIncidentsTbody = document.getElementById('admin-incidents-tbody');
+    this.adminReviewBox = document.getElementById('admin-review-box');
+    this.reviewIncidentId = document.getElementById('review-incident-id');
+    this.reviewIncidentMessage = document.getElementById('review-incident-message');
+    this.reviewStatusSelect = document.getElementById('review-status-select');
+    this.reviewNotesInput = document.getElementById('review-notes-input');
+    this.btnSaveIncidentStatus = document.getElementById('btn-save-incident-status');
+    this.btnCloseReview = document.getElementById('btn-close-review');
+    this.reviewAuditHistoryList = document.getElementById('review-audit-history-list');
+    this.adminTelemetryTbody = document.getElementById('admin-telemetry-tbody');
+
+    // User Workspace Modal
+    this.userWorkspaceModal = document.getElementById('user-workspace-modal');
+    this.workspaceModalClose = document.getElementById('workspace-modal-close');
+    this.userWatchlistList = document.getElementById('user-watchlist-list');
+    this.userIncidentsList = document.getElementById('user-incidents-list');
 
     // Command Palette
     this.cmdPalette = document.getElementById('cmd-palette');

@@ -27,7 +27,7 @@ def seed_database():
         print("[TruthTag Seed] Seeding initial intelligence ledger records...")
 
         # 1. Users
-        if environment in {"test", "testing"}:
+        if environment in {"development", "test", "testing"}:
             test_users = [
                 ("usr-admin-01", "admin_sarah", "admin@truthtag.io", hash_password("Test-Admin-Only@2026"), "admin", None),
                 ("usr-brand-01", "brand_aurasound", "partner@aurasound.com", hash_password("Test-Partner-Only@2026"), "brand_rep", "brand-001"),
@@ -234,7 +234,7 @@ def seed_database():
         """, scan_events)
 
         # 10. Sample Counterfeit Incident
-        incident_user_id = "usr-demo-01" if environment in {"test", "testing"} else None
+        incident_user_id = "usr-demo-01" if environment in {"development", "test", "testing"} else None
         incidents = [
             (
                 "inc-001", incident_user_id, "Elena Rostova", "elena@example.com", "counterfeit_report",

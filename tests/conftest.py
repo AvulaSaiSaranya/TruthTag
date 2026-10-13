@@ -1,11 +1,13 @@
-"""Isolate API tests from local and production databases."""
-
 import atexit
 import os
+import sys
 import tempfile
 import uuid
 from pathlib import Path
 
+_project_root = Path(__file__).resolve().parent.parent
+if str(_project_root) not in sys.path:
+    sys.path.insert(0, str(_project_root))
 
 os.environ["TRUTHTAG_ENV"] = "test"
 os.environ["TRUTHTAG_JWT_SECRET"] = "test-only-secret-for-truthtag-api-tests-2026"

@@ -14,9 +14,28 @@ class UserRegisterRequest(BaseModel):
     password: str = Field(..., min_length=12, max_length=128)
     role: str = Field("user", pattern="^user$")
 
+    @field_validator("username", "email", mode="before")
+    @classmethod
+    def strip_whitespace(cls, value: object) -> object:
+        if value is None:
+            return value
+        return str(value).strip()
+
+    @field_validator("email")
+    @classmethod
+    def normalize_email(cls, value: EmailStr) -> str:
+        return str(value).strip().lower()
+
 class UserLoginRequest(BaseModel):
     email_or_username: str = Field(..., min_length=1, max_length=254)
     password: str = Field(..., min_length=1, max_length=128)
+
+    @field_validator("email_or_username", mode="before")
+    @classmethod
+    def strip_login_identifier(cls, value: object) -> object:
+        if value is None:
+            return value
+        return str(value).strip()
 
 class UserResponse(BaseModel):
     id: str
@@ -214,6 +233,22 @@ class IncidentResponse(BaseModel):
 class IncidentStatusUpdateRequest(BaseModel):
     status: str = Field(..., pattern="^(pending|under_review|resolved|dismissed)$")
     admin_notes: Optional[str] = Field(None, max_length=5000)
+
+class IncidentAuditLogResponse(BaseModel):
+    id: str
+    incident_id: str
+    changed_by_user_id: Optional[str] = None
+    old_status: str
+    new_status: str
+    admin_notes: Optional[str] = None
+    created_at: str
+
+class IncidentDetailResponse(IncidentResponse):
+    audit_history: List[IncidentAuditLogResponse] = Field(default_factory=list)
+
+class IdentifierStatusUpdateRequest(BaseModel):
+    status: str = Field(..., pattern="^(active|flagged_cloned|recalled)$")
+    status_notes: Optional[str] = Field(None, max_length=1000)
 
 # --- Product & Batch Registration (Brand / Admin) ---
 class ProductCreateRequest(BaseModel):

@@ -546,3 +546,173 @@ def test_demo_seed_refuses_production_environment(monkeypatch):
     monkeypatch.setenv("TRUTHTAG_ENV", "production")
     with pytest.raises(RuntimeError, match="disabled outside development and test"):
         seed_database()
+
+# -----------------------------------------------------------------------------
+# 11. Security Headers & Rate Limiting Defense
+# -----------------------------------------------------------------------------
+def test_security_headers_enforced(client):
+    """Test that all API responses include strict browser security headers."""
+    res = client.get("/api/health")
+    assert res.status_code == 200
+    assert res.headers["x-content-type-options"] == "nosniff"
+    assert res.headers["x-frame-options"] == "DENY"
+    assert res.headers["x-xss-protection"] == "1; mode=block"
+    assert res.headers["referrer-policy"] == "strict-origin-when-cross-origin"
+
+def test_sliding_window_rate_limiter_unit_logic(monkeypatch):
+    """Test that SlidingWindowRateLimiter correctly throttles after exceeding threshold."""
+    from backend.main import SlidingWindowRateLimiter
+    monkeypatch.setenv("TRUTHTAG_ENV", "production")
+    limiter = SlidingWindowRateLimiter(limit=2, window_seconds=60)
+    assert limiter.is_allowed("192.168.1.100") is True
+    assert limiter.is_allowed("192.168.1.100") is True
+    assert limiter.is_allowed("192.168.1.100") is False
+    # Different IP should still be allowed
+    assert limiter.is_allowed("192.168.1.101") is True
+
+# -----------------------------------------------------------------------------
+# 12. Incident Filtering, Audit History & User Isolation
+# -----------------------------------------------------------------------------
+def test_incident_search_and_pagination(client):
+    """Test that administrators can filter and paginate incidents."""
+    login_res = client.post("/api/auth/login", json={
+        "email_or_username": "admin@truthtag.io",
+        "password": "Test-Admin-Only@2026"
+    })
+    token = login_res.json()["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    # Search existing seed incident for Elena
+    res_search = client.get("/api/admin/incidents?search=Elena&limit=10&offset=0", headers=headers)
+    assert res_search.status_code == 200
+    incidents = res_search.json()
+    assert len(incidents) >= 1
+    assert any("Elena" in inc["reporter_name"] for inc in incidents)
+
+    # Search with nonexistent term
+    res_empty = client.get("/api/admin/incidents?search=NONEXISTENT_QUERY_9999", headers=headers)
+    assert res_empty.status_code == 200
+    assert len(res_empty.json()) == 0
+
+def test_incident_status_update_with_audit_trail(client):
+    """Test that updating an incident status persists an audit history log."""
+    login_res = client.post("/api/auth/login", json={
+        "email_or_username": "admin@truthtag.io",
+        "password": "Test-Admin-Only@2026"
+    })
+    token = login_res.json()["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    # Create new incident
+    create_res = client.post("/api/incidents", json={
+        "reporter_name": "Audit Trail Tester",
+        "reporter_email": "audittrail@example.com",
+        "inquiry_type": "counterfeit_report",
+        "product_identifier": "AUD-9921-X",
+        "message": "Testing incident status transition and history logging."
+    })
+    assert create_res.status_code == 200
+    inc_id = create_res.json()["id"]
+
+    # Update status to under_review
+    update_res = client.patch(
+        f"/api/admin/incidents/{inc_id}/status",
+        json={"status": "under_review", "admin_notes": "Triage review started by senior auditor."},
+        headers=headers
+    )
+    assert update_res.status_code == 200
+
+    # Retrieve incident detail with audit trail
+    detail_res = client.get(f"/api/admin/incidents/{inc_id}", headers=headers)
+    assert detail_res.status_code == 200
+    data = detail_res.json()
+    assert data["status"] == "under_review"
+    assert data["admin_notes"] == "Triage review started by senior auditor."
+    assert len(data["audit_history"]) >= 1
+    audit_entry = data["audit_history"][0]
+    assert audit_entry["old_status"] == "pending"
+    assert audit_entry["new_status"] == "under_review"
+    assert "Triage review" in audit_entry["admin_notes"]
+
+def test_user_cannot_access_another_users_incident(client):
+    """Verify that ordinary users cannot access private reports filed by others."""
+    # User 1 registers and logs in
+    user1_email = "owner_user@example.com"
+    reg1 = client.post("/api/auth/register", json={
+        "username": "owner_user",
+        "email": user1_email,
+        "password": "OwnerUser-Password@2026",
+        "role": "user"
+    })
+    token1 = reg1.json()["access_token"] if reg1.status_code == 200 else client.post("/api/auth/login", json={
+        "email_or_username": user1_email, "password": "OwnerUser-Password@2026"
+    }).json()["access_token"]
+
+    # User 1 files a report
+    inc_res = client.post(
+        "/api/incidents",
+        json={
+            "reporter_name": "Owner User",
+            "reporter_email": user1_email,
+            "inquiry_type": "counterfeit_report",
+            "product_identifier": "AUD-9921-X",
+            "message": "This is a private consumer report."
+        },
+        headers={"Authorization": f"Bearer {token1}"}
+    )
+    inc_id = inc_res.json()["id"]
+
+    # User 2 registers and logs in
+    user2_email = "intruder_user@example.com"
+    reg2 = client.post("/api/auth/register", json={
+        "username": "intruder_user",
+        "email": user2_email,
+        "password": "IntruderUser-Password@2026",
+        "role": "user"
+    })
+    token2 = reg2.json()["access_token"] if reg2.status_code == 200 else client.post("/api/auth/login", json={
+        "email_or_username": user2_email, "password": "IntruderUser-Password@2026"
+    }).json()["access_token"]
+
+    # User 2 attempts to fetch User 1's report directly
+    unauth_res = client.get(f"/api/incidents/{inc_id}", headers={"Authorization": f"Bearer {token2}"})
+    assert unauth_res.status_code == 403
+    assert "Access denied" in unauth_res.json()["detail"]
+
+    # User 1 can view their own report
+    auth_res = client.get(f"/api/incidents/{inc_id}", headers={"Authorization": f"Bearer {token1}"})
+    assert auth_res.status_code == 200
+    assert auth_res.json()["id"] == inc_id
+
+# -----------------------------------------------------------------------------
+# 13. Admin Identifier Management & Scans
+# -----------------------------------------------------------------------------
+def test_admin_identifier_status_management(client):
+    """Test that administrators can update identifier status and view scan history."""
+    login_res = client.post("/api/auth/login", json={
+        "email_or_username": "admin@truthtag.io",
+        "password": "Test-Admin-Only@2026"
+    })
+    token = login_res.json()["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    # Update identifier status
+    patch_res = client.patch(
+        "/api/admin/identifiers/ident-001/status",
+        json={"status": "flagged_cloned"},
+        headers=headers
+    )
+    assert patch_res.status_code == 200
+
+    # View scan history
+    scans_res = client.get("/api/admin/identifiers/ident-001/scans", headers=headers)
+    assert scans_res.status_code == 200
+    assert "scans" in scans_res.json()
+
+    # Revert to active
+    revert_res = client.patch(
+        "/api/admin/identifiers/ident-001/status",
+        json={"status": "active"},
+        headers=headers
+    )
+    assert revert_res.status_code == 200

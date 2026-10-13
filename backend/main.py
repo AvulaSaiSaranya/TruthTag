@@ -5,6 +5,7 @@ image identification, multi-retailer price tracking, and administrative controls
 """
 
 import os
+import time
 import uuid
 import json
 import logging
@@ -45,6 +46,9 @@ from .models import (
     IncidentCreateRequest,
     IncidentResponse,
     IncidentStatusUpdateRequest,
+    IncidentDetailResponse,
+    IncidentAuditLogResponse,
+    IdentifierStatusUpdateRequest,
     ProductCreateRequest,
     BatchCreateRequest,
     BulkImportRequest,
@@ -64,6 +68,29 @@ from .trust_report_service import generate_product_trust_report
 
 logger = logging.getLogger(__name__)
 
+class SlidingWindowRateLimiter:
+    """In-memory rate limiter per client IP address."""
+    def __init__(self, limit: int, window_seconds: int):
+        self.limit = limit
+        self.window_seconds = window_seconds
+        self.requests: Dict[str, List[float]] = {}
+
+    def is_allowed(self, client_ip: str) -> bool:
+        if os.environ.get("TRUTHTAG_ENV", "").strip().lower() in {"test", "testing"}:
+            return True
+        now = time.time()
+        timestamps = self.requests.get(client_ip, [])
+        timestamps = [t for t in timestamps if now - t < self.window_seconds]
+        if len(timestamps) >= self.limit:
+            self.requests[client_ip] = timestamps
+            return False
+        timestamps.append(now)
+        self.requests[client_ip] = timestamps
+        return True
+
+auth_rate_limiter = SlidingWindowRateLimiter(limit=15, window_seconds=60)
+verify_rate_limiter = SlidingWindowRateLimiter(limit=60, window_seconds=60)
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
@@ -81,6 +108,16 @@ app = FastAPI(
     version="3.9.0",
     lifespan=lifespan
 )
+
+@app.middleware("http")
+async def add_security_headers(request: Request, call_next):
+    """Enforce standard browser security defense headers."""
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["X-XSS-Protection"] = "1; mode=block"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    return response
 
 allowed_origins = [
     origin.strip()
@@ -120,11 +157,25 @@ def get_health():
 # 2. Authentication & User Profile
 # -----------------------------------------------------------------------------
 @app.post("/api/auth/register", response_model=AuthTokenResponse, tags=["Authentication"])
-def register_user(req: UserRegisterRequest):
+def register_user(req: UserRegisterRequest, request: Request):
     """Register a new user account with secure password hashing."""
+    client_ip = request.client.host if request.client else "127.0.0.1"
+    if not auth_rate_limiter.is_allowed(client_ip):
+        raise HTTPException(
+            status_code=429,
+            detail="Too many authentication attempts. Please wait a minute before trying again.",
+            headers={"Retry-After": "60"}
+        )
+
+    username = req.username.strip()
+    email = req.email.strip().lower()
+
     with get_db() as conn:
         cursor = conn.cursor()
-        cursor.execute("SELECT id FROM users WHERE email = ? OR username = ?", (req.email, req.username))
+        cursor.execute(
+            "SELECT id FROM users WHERE LOWER(email) = LOWER(?) OR LOWER(username) = LOWER(?)",
+            (email, username),
+        )
         if cursor.fetchone():
             raise HTTPException(status_code=400, detail="Username or email already registered.")
         
@@ -133,14 +184,14 @@ def register_user(req: UserRegisterRequest):
         cursor.execute("""
             INSERT INTO users (id, username, email, password_hash, role, brand_id)
             VALUES (?, ?, ?, ?, ?, ?)
-        """, (user_id, req.username, req.email, hashed, "user", None))
+        """, (user_id, username, email, hashed, "user", None))
 
-        token = create_access_token({"sub": user_id, "role": "user", "username": req.username})
+        token = create_access_token({"sub": user_id, "role": "user", "username": username})
 
         user_resp = UserResponse(
             id=user_id,
-            username=req.username,
-            email=req.email,
+            username=username,
+            email=email,
             role="user",
             brand_id=None,
             created_at=str(datetime.now())
@@ -148,15 +199,25 @@ def register_user(req: UserRegisterRequest):
         return AuthTokenResponse(access_token=token, user=user_resp)
 
 @app.post("/api/auth/login", response_model=AuthTokenResponse, tags=["Authentication"])
-def login_user(req: UserLoginRequest):
+def login_user(req: UserLoginRequest, request: Request):
     """Authenticate user and return JWT bearer token."""
+    client_ip = request.client.host if request.client else "127.0.0.1"
+    if not auth_rate_limiter.is_allowed(client_ip):
+        raise HTTPException(
+            status_code=429,
+            detail="Too many authentication attempts. Please wait a minute before trying again.",
+            headers={"Retry-After": "60"}
+        )
+
+    login_value = req.email_or_username.strip()
+
     with get_db() as conn:
         cursor = conn.cursor()
         cursor.execute("""
             SELECT id, username, email, password_hash, role, brand_id, created_at
             FROM users
-            WHERE email = ? OR username = ?
-        """, (req.email_or_username, req.email_or_username))
+            WHERE LOWER(email) = LOWER(?) OR LOWER(username) = LOWER(?)
+        """, (login_value, login_value))
         user = cursor.fetchone()
 
         if not user or not verify_password(req.password, user["password_hash"]):
@@ -199,6 +260,12 @@ def verify_identifier(
     Tracks scan velocity, detects duplicate cloning anomalies, and evaluates consistency.
     """
     client_ip = request.client.host if request.client else "127.0.0.1"
+    if not verify_rate_limiter.is_allowed(client_ip):
+        raise HTTPException(
+            status_code=429,
+            detail="Verification rate limit exceeded. Please wait a minute before making more queries.",
+            headers={"Retry-After": "60"}
+        )
     user_id = current_user["id"] if current_user else None
 
     return run_verification(
@@ -422,6 +489,20 @@ def get_user_submitted_incidents(current_user: dict = Depends(get_current_user))
         cursor.execute("SELECT * FROM incidents WHERE user_id = ? ORDER BY created_at DESC", (current_user["id"],))
         rows = cursor.fetchall()
         return [IncidentResponse(**dict(r)) for r in rows]
+
+@app.get("/api/incidents/{incident_id}", response_model=IncidentResponse, tags=["Incidents"])
+def get_single_incident(incident_id: str, current_user: dict = Depends(get_current_user)):
+    """Retrieve details for a specific incident with user-isolation access control."""
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM incidents WHERE id = ?", (incident_id,))
+        row = cursor.fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="Incident not found.")
+        # Protection against unauthorized access to another user's private report
+        if current_user["role"] not in {"admin", "brand_rep"} and row["user_id"] != current_user["id"]:
+            raise HTTPException(status_code=403, detail="Access denied. You cannot view another user's private report.")
+        return IncidentResponse(**dict(row))
 
 # -----------------------------------------------------------------------------
 # 10. Real Stored Data Analytics Dashboard
@@ -735,17 +816,24 @@ def bulk_import_records(
     )
 
 @app.get("/api/admin/incidents", response_model=List[IncidentResponse], tags=["Brand & Admin Portal"])
-def list_all_incidents_admin(current_user: dict = Depends(require_role(["brand_rep", "admin"]))):
-    """Triage counterfeit incidents and brand alerts."""
+def list_all_incidents_admin(
+    status: Optional[str] = Query(None, description="Filter by status: pending, under_review, resolved, dismissed"),
+    search: Optional[str] = Query(None, description="Search term for reporter, identifier, or message"),
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+    current_user: dict = Depends(require_role(["brand_rep", "admin"]))
+):
+    """Triage counterfeit incidents and brand alerts with search, status filtering, and pagination."""
     with get_db() as conn:
         cursor = conn.cursor()
         if current_user["role"] == "admin":
-            cursor.execute("SELECT * FROM incidents ORDER BY created_at DESC")
+            query = "SELECT * FROM incidents WHERE 1=1"
+            params = []
         else:
             brand_id = current_user.get("brand_id")
             if not brand_id:
                 raise HTTPException(status_code=403, detail="Brand representative account has no brand assignment.")
-            cursor.execute("""
+            query = """
                 SELECT inc.*
                 FROM incidents inc
                 WHERE EXISTS (
@@ -765,10 +853,61 @@ def list_all_incidents_admin(current_user: dict = Depends(require_role(["brand_r
                           )
                       )
                 )
-                ORDER BY inc.created_at DESC
-            """, (brand_id,))
+            """
+            params = [brand_id]
+
+        if status:
+            query += " AND status = ?"
+            params.append(status)
+        if search:
+            s = f"%{search.lower()}%"
+            query += " AND (LOWER(reporter_name) LIKE ? OR LOWER(reporter_email) LIKE ? OR LOWER(COALESCE(product_identifier, '')) LIKE ? OR LOWER(message) LIKE ?)"
+            params.extend([s, s, s, s])
+
+        query += " ORDER BY created_at DESC LIMIT ? OFFSET ?"
+        params.extend([limit, offset])
+
+        cursor.execute(query, params)
         rows = cursor.fetchall()
         return [IncidentResponse(**dict(r)) for r in rows]
+
+@app.get("/api/admin/incidents/{incident_id}", response_model=IncidentDetailResponse, tags=["Brand & Admin Portal"])
+def get_incident_detail_admin(
+    incident_id: str,
+    current_user: dict = Depends(require_role(["brand_rep", "admin"]))
+):
+    """Retrieve full incident details including administrative status audit history."""
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM incidents WHERE id = ?", (incident_id,))
+        inc = cursor.fetchone()
+        if not inc:
+            raise HTTPException(status_code=404, detail="Incident not found.")
+
+        if current_user["role"] == "brand_rep":
+            brand_id = current_user.get("brand_id")
+            cursor.execute("""
+                SELECT 1 FROM products p
+                WHERE p.brand_id = ?
+                  AND (
+                      ? = p.id OR ? = p.model_sku
+                      OR EXISTS (SELECT 1 FROM batches b WHERE b.product_id = p.id AND b.batch_number = ?)
+                      OR EXISTS (SELECT 1 FROM identifiers i WHERE i.product_id = p.id AND i.serial_number = ?)
+                  )
+            """, (brand_id, inc["product_identifier"], inc["product_identifier"], inc["product_identifier"], inc["product_identifier"]))
+            if not cursor.fetchone():
+                raise HTTPException(status_code=403, detail="Access denied. This report is outside your assigned brand catalog.")
+
+        cursor.execute("""
+            SELECT * FROM incident_audit_logs
+            WHERE incident_id = ?
+            ORDER BY created_at DESC
+        """, (incident_id,))
+        audit_rows = cursor.fetchall()
+
+        detail_dict = dict(inc)
+        detail_dict["audit_history"] = [IncidentAuditLogResponse(**dict(a)) for a in audit_rows]
+        return IncidentDetailResponse(**detail_dict)
 
 @app.patch("/api/admin/incidents/{incident_id}/status", tags=["Brand & Admin Portal"])
 def update_incident_status(
@@ -776,17 +915,67 @@ def update_incident_status(
     req: IncidentStatusUpdateRequest,
     current_user: dict = Depends(require_role(["admin"]))
 ):
-    """Update incident status and administrative review notes."""
+    """Update incident status and administrative review notes, tracking audit trail."""
     with get_db() as conn:
         cursor = conn.cursor()
+        cursor.execute("SELECT status FROM incidents WHERE id = ?", (incident_id,))
+        inc = cursor.fetchone()
+        if not inc:
+            raise HTTPException(status_code=404, detail="Incident not found.")
+        old_status = inc["status"]
+
         cursor.execute("""
             UPDATE incidents
             SET status = ?, admin_notes = ?
             WHERE id = ?
         """, (req.status, req.admin_notes, incident_id))
-        if cursor.rowcount == 0:
-            raise HTTPException(status_code=404, detail="Incident not found.")
+
+        audit_id = "AUD-LOG-" + uuid.uuid4().hex[:10]
+        cursor.execute("""
+            INSERT INTO incident_audit_logs (id, incident_id, changed_by_user_id, old_status, new_status, admin_notes)
+            VALUES (?, ?, ?, ?, ?, ?)
+        """, (audit_id, incident_id, current_user["id"], old_status, req.status, req.admin_notes))
+
     return {"status": "success", "message": f"Incident {incident_id} marked as {req.status}."}
+
+@app.patch("/api/admin/identifiers/{identifier_id}/status", tags=["Brand & Admin Portal"])
+def update_identifier_status(
+    identifier_id: str,
+    req: IdentifierStatusUpdateRequest,
+    current_user: dict = Depends(require_role(["admin"]))
+):
+    """Update status of a specific serial or identifier record (resolve false positive or flag)."""
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("UPDATE identifiers SET status = ? WHERE id = ? OR serial_number = ?", (req.status, identifier_id, identifier_id))
+        if cursor.rowcount == 0:
+            raise HTTPException(status_code=404, detail="Identifier record not found.")
+    return {"status": "success", "message": f"Identifier marked as {req.status}."}
+
+@app.get("/api/admin/identifiers/{identifier_id}/scans", tags=["Brand & Admin Portal"])
+def get_identifier_scans(
+    identifier_id: str,
+    current_user: dict = Depends(require_role(["admin", "brand_rep"]))
+):
+    """Retrieve complete scan event history for an identifier."""
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT s.*, p.name as product_name
+            FROM scan_events s
+            LEFT JOIN products p ON s.product_id = p.id
+            WHERE s.identifier_id = ? OR s.submitted_query = ?
+            ORDER BY s.scanned_at DESC
+            LIMIT 100
+        """, (identifier_id, identifier_id))
+        rows = [dict(r) for r in cursor.fetchall()]
+        for r in rows:
+            if r.get("anomaly_flags"):
+                try:
+                    r["anomaly_flags"] = json.loads(r["anomaly_flags"])
+                except Exception:
+                    pass
+        return {"scans": rows}
 
 @app.get("/api/admin/anomaly-telemetry", tags=["Brand & Admin Portal"])
 def get_anomaly_telemetry(current_user: dict = Depends(require_role(["admin", "brand_rep"]))):
@@ -818,6 +1007,9 @@ def get_anomaly_telemetry(current_user: dict = Depends(require_role(["admin", "b
 # 12. Mount Static Files & Single-Page Application
 # -----------------------------------------------------------------------------
 STATIC_DIR = Path(__file__).parent.parent
+VENDOR_DIR = STATIC_DIR / "vendor"
+if VENDOR_DIR.exists():
+    app.mount("/vendor", StaticFiles(directory=str(VENDOR_DIR)), name="vendor")
 
 @app.get("/", include_in_schema=False)
 async def serve_index():

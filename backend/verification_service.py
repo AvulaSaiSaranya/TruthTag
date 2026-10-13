@@ -4,13 +4,16 @@ Handles identifier normalization, ledger querying, duplicate scan tracking,
 consistency inspection, and transparent heuristic risk scoring.
 """
 
+import os
 import uuid
 import json
 import re
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import Dict, Any, Optional, Tuple, List
 from .database import get_db
 from .models import VerificationResponse, ConsistencyField
+
+DUPLICATE_WINDOW_MINUTES = int(os.environ.get("TRUTHTAG_DUPLICATE_WINDOW_MINUTES", "60"))
 
 INTEGRITY_DISCLOSURE = (
     "DEMO LIMITATION: A positive result means that the identifier matched a record in this fictional demo "
@@ -242,14 +245,52 @@ def run_verification(
         if current_scan_count > 1:
             duplicate_alert = True
             anomaly_flags.append("DUPLICATE_SCAN_DETECTED")
-            if current_scan_count >= 10:
+
+            # Check scan velocity within the configured time window
+            window_cutoff = (datetime.now(timezone.utc) - timedelta(minutes=DUPLICATE_WINDOW_MINUTES)).strftime("%Y-%m-%d %H:%M:%S")
+            cursor.execute("""
+                SELECT COUNT(*), COUNT(DISTINCT client_ip)
+                FROM scan_events
+                WHERE identifier_id = ? AND scanned_at >= ?
+            """, (identifier_id, window_cutoff))
+            velocity_row = cursor.fetchone()
+            recent_window_scans = velocity_row[0] if velocity_row else 0
+            distinct_ips = velocity_row[1] if velocity_row else 0
+
+            if recent_window_scans >= 1:
+                anomaly_flags.append("REPEAT_SCAN_WITHIN_WINDOW")
+                if distinct_ips > 1:
+                    anomaly_flags.append("CROSS_ORIGIN_VELOCITY_SPIKE")
+                    is_warning = True
+                    risk_score += 40.0
+                    risk_reasons.append(
+                        f"Velocity anomaly: Multiple lookups ({recent_window_scans + 1}) within {DUPLICATE_WINDOW_MINUTES}m "
+                        f"from distinct client networks ({distinct_ips + 1} origins)."
+                    )
+                elif recent_window_scans >= 3:
+                    is_warning = True
+                    risk_score += 35.0
+                    risk_reasons.append(
+                        f"High velocity: {recent_window_scans + 1} queries recorded within {DUPLICATE_WINDOW_MINUTES} minutes."
+                    )
+                else:
+                    risk_score += 15.0
+                    risk_reasons.append(
+                        f"Repeat lookup within {DUPLICATE_WINDOW_MINUTES}m window ({recent_window_scans + 1} scans recorded). "
+                        "If you did not scan this code previously, verify seller authenticity."
+                    )
+            elif current_scan_count >= 10:
                 is_warning = True
                 risk_score += 45.0
                 anomaly_flags.append("HIGH_REPEAT_LOOKUP_COUNT")
-                risk_reasons.append(f"This identifier has {current_scan_count} recorded lookups in the demo database. Repeat lookups alone do not establish cloning.")
+                risk_reasons.append(
+                    f"This identifier has {current_scan_count} recorded lookups in the demo database. Repeat lookups alone do not establish cloning."
+                )
             else:
                 risk_score += 15.0
-                risk_reasons.append(f"Identifier previously verified {current_scan_count - 1} times. If you did not scan this code previously, verify seller authenticity.")
+                risk_reasons.append(
+                    f"Identifier previously verified {current_scan_count - 1} times. If you did not scan this code previously, verify seller authenticity."
+                )
 
         # 4. Submitted metadata mismatch checks
         model_conflict = False

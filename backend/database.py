@@ -211,6 +211,21 @@ def init_db():
         );
         """)
 
+        # 12. Incident Audit Logs table (records administrative review and status transitions)
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS incident_audit_logs (
+            id TEXT PRIMARY KEY,
+            incident_id TEXT NOT NULL,
+            changed_by_user_id TEXT,
+            old_status TEXT NOT NULL,
+            new_status TEXT NOT NULL,
+            admin_notes TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (incident_id) REFERENCES incidents(id) ON DELETE CASCADE,
+            FOREIGN KEY (changed_by_user_id) REFERENCES users(id) ON DELETE SET NULL
+        );
+        """)
+
         # Indexes for ultra-fast query performance
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_identifiers_serial ON identifiers(serial_number);")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_identifiers_product ON identifiers(product_id);")
@@ -221,3 +236,4 @@ def init_db():
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_price_obs_listing_date ON price_observations(listing_id, observed_at);")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_listings_product ON retailer_listings(product_id);")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_watchlists_user ON watchlists(user_id);")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_incident_audit_incident ON incident_audit_logs(incident_id);")

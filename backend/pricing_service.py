@@ -24,10 +24,12 @@ def get_product_pricing(product_id: str) -> Optional[ProductPricingResponse]:
         cursor = conn.cursor()
 
         # 1. Product Details
-        cursor.execute("SELECT id, name, model_sku FROM products WHERE id = ?", (product_id,))
+        cursor.execute("SELECT id, name, model_sku FROM products WHERE id = ? OR model_sku = ?", (product_id, product_id))
         prod = cursor.fetchone()
         if not prod:
             return None
+
+        real_product_id = prod["id"]
 
         # 2. Retailer Listings
         cursor.execute("""
@@ -39,7 +41,7 @@ def get_product_pricing(product_id: str) -> Optional[ProductPricingResponse]:
             JOIN retailers r ON l.retailer_id = r.id
             WHERE l.product_id = ?
             ORDER BY (l.current_price + l.shipping_price) ASC
-        """, (product_id,))
+        """, (real_product_id,))
         listing_rows = cursor.fetchall()
 
         if not listing_rows:
